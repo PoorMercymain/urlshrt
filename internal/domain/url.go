@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -18,7 +19,7 @@ func (u URL) String() string {
 
 func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		if r.Header.Get("Content-Type") == "text/plain" || r.ContentLength == 0 {
+		if strings.HasPrefix("text/plain", r.Header.Get("Content-Type")) || r.ContentLength == 0 {
 			scanner := bufio.NewScanner(r.Body)
 			scanner.Scan()
 			originalURL := scanner.Text()
@@ -28,7 +29,7 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(err.Error()))
 				return
 			}
-			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(201)
 			w.Write([]byte(shortenedURL))
 			return
