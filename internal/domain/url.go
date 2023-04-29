@@ -52,6 +52,10 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 
 		for _, url := range savedUrls {
 			if url.Shortened == shortenedURL {
+				if !strings.HasPrefix(url.Original, "http") {
+					url.Original = "http://" + url.Original
+				}
+
 				w.Header().Set("Location", url.Original)
 				w.WriteHeader(307)
 				return
