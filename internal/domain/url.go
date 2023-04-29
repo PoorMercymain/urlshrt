@@ -2,7 +2,6 @@ package domain
 
 import (
 	"bufio"
-	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
@@ -18,13 +17,12 @@ func (u URL) String() string {
 }
 
 func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.Method)
 	if r.Method == http.MethodPost {
 		if r.Header.Get("Content-Type") == "text/plain" || r.ContentLength == 0 {
 			scanner := bufio.NewScanner(r.Body)
 			scanner.Scan()
 			originalURL := scanner.Text()
-			fmt.Println("orig", originalURL)
+
 			shortenedURL, err := u.ShortenRawURL(originalURL)
 			if err != nil {
 				w.Write([]byte(err.Error()))
@@ -43,18 +41,13 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 			shortenedURL = ""
 		}
 
-		fmt.Println("u", shortenedURL)
-
 		db := NewDB("txt", "testTxtDB.txt")
 
 		savedUrls, err := db.getUrls()
-		fmt.Println("Получено:", savedUrls)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-
-		fmt.Println("сокр", shortenedURL)
 
 		for _, url := range savedUrls {
 			if url.Shortened == shortenedURL {

@@ -2,7 +2,6 @@ package domain
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
 )
@@ -35,8 +34,6 @@ func (db DB) getUrls() ([]URL, error) {
 
 	for scanner.Scan() {
 		u := URL{Original: strings.Split(scanner.Text(), " ")[0], Shortened: strings.Split(scanner.Text(), " ")[1]}
-		fmt.Println("\"" + u.Original + "\"")
-		fmt.Println("\"" + u.Shortened + "\"")
 		urls = append(urls, u)
 	}
 
