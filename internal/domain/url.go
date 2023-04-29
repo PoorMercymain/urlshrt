@@ -31,7 +31,7 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(201)
-			w.Write([]byte(shortenedURL))
+			w.Write([]byte("http://localhost:8080/" + shortenedURL))
 			return
 		}
 	} else if r.Method == http.MethodGet {
@@ -52,10 +52,6 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 
 		for _, url := range savedUrls {
 			if url.Shortened == shortenedURL {
-				if !strings.HasPrefix(url.Original, "http") {
-					url.Original = "http://" + url.Original
-				}
-
 				w.Header().Set("Location", url.Original)
 				w.WriteHeader(307)
 				return
