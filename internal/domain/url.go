@@ -79,19 +79,19 @@ func (u URL) ShortenRawURL(rawURL string) (string, error) {
 		}
 	}
 
-	var shortenedUrl string
+	var shortenedURL string
 
 	length := 7
 
-    shortenedUrl = generateRandomString(length)
+    shortenedURL = generateRandomString(length)
 
 	for _, url := range savedUrls {
-		for shortenedUrl == url.Shortened {
-			shortenedUrl = generateRandomString(length)
+		for shortenedURL == url.Shortened {
+			shortenedURL = generateRandomString(length)
 		}
 	}
 
-	u.Shortened = shortenedUrl
+	u.Shortened = shortenedURL
 
 	var urlStrArr []string
 
