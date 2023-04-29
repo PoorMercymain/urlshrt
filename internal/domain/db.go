@@ -1,0 +1,64 @@
+package domain
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
+
+type DB struct {
+	dBType   string
+	location string
+}
+
+func NewDB(dBType string, location string) DB {
+	return DB{dBType: dBType, location: location}
+}
+
+func (db DB) getUrls() ([]Url, error) {
+	f, err := os.Open(db.location)
+    if err != nil {
+        return make([]Url, 0), err
+    }
+
+    defer func() error {
+        if err := f.Close(); err != nil {
+            return err
+        }
+		return nil
+    }()
+
+	scanner := bufio.NewScanner(f)
+
+	urls := make([]Url, 0)
+
+	for scanner.Scan() {
+		u := Url{Original: strings.Split(scanner.Text(), " ")[0], Shortened: strings.Split(scanner.Text(), " ")[1]}
+		fmt.Println("\"" + u.Original + "\"")
+		fmt.Println("\"" + u.Shortened + "\"")
+		urls = append(urls, u)
+	}
+
+	return urls, nil
+}
+
+func (db DB) saveStrings(urlStrings []string) error {
+	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+    	return err
+	}
+
+	defer func() error {
+        if err := f.Close(); err != nil {
+            return err
+        }
+		return nil
+    }()
+
+	for _, str := range urlStrings {
+		f.WriteString(str + "\n")
+	}
+
+	return nil
+}
