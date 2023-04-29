@@ -8,39 +8,39 @@ import (
 	"time"
 )
 
-type Url struct {
+type URL struct {
 	Original string
 	Shortened string
 }
 
-func (u Url) String() string {
+func (u URL) String() string {
 	return u.Original + " " + u.Shortened
 }
 
-func (u Url) ShortenUrlHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost && r.Header.Get("Content-Type") == "text/plain" {
+func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && r.Header.Get("Content-Type") == "text/plain" || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
-		originalUrl := scanner.Text()
-		fmt.Println("orig", originalUrl)
-		shortenedUrl, err := u.ShortenRawUrl(originalUrl)
+		originalURL := scanner.Text()
+		fmt.Println("orig", originalURL)
+		shortenedURL, err := u.ShortenRawURL(originalURL)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(201)
-		w.Write([]byte(shortenedUrl))
+		w.Write([]byte(shortenedURL))
 		return
 	} else if r.Method == http.MethodGet {
-		var shortenedUrl string
+		var shortenedURL string
 		if len(r.URL.String()) > 1 {
-			shortenedUrl = r.URL.String()[1:]
+			shortenedURL = r.URL.String()[1:]
 		} else {
-			shortenedUrl = ""
+			shortenedURL = ""
 		}
 
-		fmt.Println("u", shortenedUrl)
+		fmt.Println("u", shortenedURL)
 
 		db := NewDB("txt", "testTxtDB.txt")
 
@@ -50,10 +50,10 @@ func (u Url) ShortenUrlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println("сокр", shortenedUrl)
+		fmt.Println("сокр", shortenedURL)
 
 		for _, url := range savedUrls {
-			if url.Shortened == shortenedUrl {
+			if url.Shortened == shortenedURL {
 				w.Header().Set("Location", url.Original)
 				w.WriteHeader(307)
 				return
@@ -63,12 +63,12 @@ func (u Url) ShortenUrlHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(400)
 }
 
-func (u Url) ShortenRawUrl(rawUrl string) (string, error) {
+func (u URL) ShortenRawURL(rawURL string) (string, error) {
 	rand.Seed(time.Now().Unix())
 
 	db := NewDB("txt", "testTxtDB.txt")
-	
-	u.Original = rawUrl
+
+	u.Original = rawURL
 
 	savedUrls, err := db.getUrls()
 	if err != nil {

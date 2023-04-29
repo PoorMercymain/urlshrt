@@ -8,10 +8,10 @@ import (
 )
 
 func main() {
-	url := domain.Url{}
+	url := domain.URL{}
 
 	mux := http.NewServeMux()
-	mux.Handle(`/`, http.HandlerFunc(url.ShortenUrlHandler))
+	mux.Handle(`/`, http.HandlerFunc(url.ShortenURLHandler))
 
 	err := http.ListenAndServe(":8080", mux)
     if err != nil {
