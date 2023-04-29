@@ -65,7 +65,9 @@ func (u Url) ShortenUrlHandler(w http.ResponseWriter, r *http.Request) {
 
 func (u Url) ShortenRawUrl(rawUrl string) (string, error) {
 	rand.Seed(time.Now().Unix())
+
 	db := NewDB("txt", "testTxtDB.txt")
+	
 	u.Original = rawUrl
 
 	savedUrls, err := db.getUrls()
