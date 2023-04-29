@@ -29,7 +29,7 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(err.Error()))
 				return
 			}
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(201)
 			w.Write([]byte(shortenedURL))
 			return
