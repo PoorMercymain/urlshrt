@@ -18,20 +18,23 @@ func (u URL) String() string {
 }
 
 func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost && r.Header.Get("Content-Type") == "text/plain" || r.ContentLength == 0 {
-		scanner := bufio.NewScanner(r.Body)
-		scanner.Scan()
-		originalURL := scanner.Text()
-		fmt.Println("orig", originalURL)
-		shortenedURL, err := u.ShortenRawURL(originalURL)
-		if err != nil {
-			w.Write([]byte(err.Error()))
+	fmt.Println(r.Method)
+	if r.Method == http.MethodPost {
+		if r.Header.Get("Content-Type") == "text/plain" || r.ContentLength == 0 {
+			scanner := bufio.NewScanner(r.Body)
+			scanner.Scan()
+			originalURL := scanner.Text()
+			fmt.Println("orig", originalURL)
+			shortenedURL, err := u.ShortenRawURL(originalURL)
+			if err != nil {
+				w.Write([]byte(err.Error()))
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(201)
+			w.Write([]byte(shortenedURL))
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(201)
-		w.Write([]byte(shortenedURL))
-		return
 	} else if r.Method == http.MethodGet {
 		var shortenedURL string
 		if len(r.URL.String()) > 1 {
@@ -45,6 +48,7 @@ func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 		db := NewDB("txt", "testTxtDB.txt")
 
 		savedUrls, err := db.getUrls()
+		fmt.Println("Получено:", savedUrls)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
