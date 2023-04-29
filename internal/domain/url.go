@@ -19,7 +19,7 @@ func (u URL) String() string {
 
 func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		if strings.HasPrefix("text/plain", r.Header.Get("Content-Type")) || r.ContentLength == 0 {
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 			scanner := bufio.NewScanner(r.Body)
 			scanner.Scan()
 			originalURL := scanner.Text()
