@@ -2,6 +2,7 @@ package domain
 
 import (
 	"bufio"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -17,13 +18,13 @@ func (u URL) String() string {
 	return u.Original + " " + u.Shortened
 }
 
-func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request) {
+func (u URL) generateShortURL(w http.ResponseWriter, r *http.Request, urls []URL) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
 		originalURL := scanner.Text()
 
-		shortenedURL, err := u.ShortenRawURL(originalURL)
+		shortenedURL, err := u.ShortenRawURL(originalURL, urls)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
@@ -36,53 +37,55 @@ func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(400)
 }
 
-func (u URL) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
+func (u URL) getOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) {
 	var shortenedURL string
-	if len(r.URL.String()) > 1 {
-		shortenedURL = r.URL.String()[1:]
-	} else {
-		shortenedURL = ""
-	}
+			if len(r.URL.String()) > 1 {
+				shortenedURL = r.URL.String()[1:]
+			} else {
+				shortenedURL = ""
+			}
 
-	db := NewDB("txt", "testTxtDB.txt")
+			db := NewDB("txt", "testTxtDB.txt")
 
-	savedUrls, err := db.getUrls()
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		return
-	}
+			savedUrls, err := db.getUrls()
+			if err != nil {
+				savedUrls = urls
+			}
 
-	for _, url := range savedUrls {
-		if url.Shortened == shortenedURL {
-			w.Header().Set("Location", url.Original)
-			w.WriteHeader(307)
-			return
+			for _, url := range savedUrls {
+				if url.Shortened == shortenedURL {
+					w.Header().Set("Location", url.Original)
+					w.WriteHeader(307)
+					return
+				}
+			}
+
+			w.WriteHeader(400)
+}
+
+func (u URL) ShortenURLHandler(urls []URL) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			u.generateShortURL(w, r, urls)
+		case http.MethodGet:
+			u.getOriginalURL(w, r, urls)
+		default:
+			http.Error(w, "Bad request", http.StatusBadRequest)
 		}
 	}
-
-	w.WriteHeader(400)
 }
 
-func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		u.GenerateShortURL(w, r)
-	} else if r.Method == http.MethodGet {
-		u.GetOriginalURL(w, r)
-	} else {
-		w.WriteHeader(400)
-	}
-}
-
-func (u URL) ShortenRawURL(rawURL string) (string, error) {
+func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 	rand.Seed(time.Now().Unix())
 
 	db := NewDB("txt", "testTxtDB.txt")
 
 	u.Original = rawURL
 
-	savedUrls, err := db.getUrls()
-	if err != nil {
-		return "", err
+	savedUrls, errDB := db.getUrls()
+	if errDB != nil {
+		savedUrls = urls
 	}
 
 	for _, url := range savedUrls {
@@ -108,8 +111,11 @@ func (u URL) ShortenRawURL(rawURL string) (string, error) {
 	var urlStrArr []string
 
 	urlStrArr = append(urlStrArr, u.String())
-
-	db.saveStrings(urlStrArr)
+	if errDB == nil {
+		db.saveStrings(urlStrArr)
+	}
+	urls = append(urls, u)
+	fmt.Println(urls)
 
 	return u.Shortened, nil
 }
