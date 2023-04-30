@@ -17,48 +17,60 @@ func (u URL) String() string {
 	return u.Original + " " + u.Shortened
 }
 
-func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
-			scanner := bufio.NewScanner(r.Body)
-			scanner.Scan()
-			originalURL := scanner.Text()
+func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
+		scanner := bufio.NewScanner(r.Body)
+		scanner.Scan()
+		originalURL := scanner.Text()
 
-			shortenedURL, err := u.ShortenRawURL(originalURL)
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				return
-			}
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(201)
-			w.Write([]byte("http://localhost:8080/" + shortenedURL))
-			return
-		}
-	} else if r.Method == http.MethodGet {
-		var shortenedURL string
-		if len(r.URL.String()) > 1 {
-			shortenedURL = r.URL.String()[1:]
-		} else {
-			shortenedURL = ""
-		}
-
-		db := NewDB("txt", "testTxtDB.txt")
-
-		savedUrls, err := db.getUrls()
+		shortenedURL, err := u.ShortenRawURL(originalURL)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-
-		for _, url := range savedUrls {
-			if url.Shortened == shortenedURL {
-				w.Header().Set("Location", url.Original)
-				w.WriteHeader(307)
-				return
-			}
-		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(201)
+		w.Write([]byte("http://localhost:8080/" + shortenedURL))
+		return
 	}
 	w.WriteHeader(400)
+}
+
+func (u URL) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
+	var shortenedURL string
+	if len(r.URL.String()) > 1 {
+		shortenedURL = r.URL.String()[1:]
+	} else {
+		shortenedURL = ""
+	}
+
+	db := NewDB("txt", "testTxtDB.txt")
+
+	savedUrls, err := db.getUrls()
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	for _, url := range savedUrls {
+		if url.Shortened == shortenedURL {
+			w.Header().Set("Location", url.Original)
+			w.WriteHeader(307)
+			return
+		}
+	}
+
+	w.WriteHeader(400)
+}
+
+func (u URL) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		u.GenerateShortURL(w, r)
+	} else if r.Method == http.MethodGet {
+		u.GetOriginalURL(w, r)
+	} else {
+		w.WriteHeader(400)
+	}
 }
 
 func (u URL) ShortenRawURL(rawURL string) (string, error) {
