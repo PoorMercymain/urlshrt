@@ -51,6 +51,7 @@ func TestShortenURLHandler(t *testing.T) {
 			tt.u.generateShortURL(&tt.args[0].w, tt.args[0].r, urls)
 
 			res := tt.args[0].w.Result()
+			defer res.Body.Close()
 			t.Log(urls)
 			assert.Equal(t, http.StatusCreated, res.StatusCode)
 			resBody, err := io.ReadAll(res.Body)
@@ -59,6 +60,7 @@ func TestShortenURLHandler(t *testing.T) {
 			tt.args[1].r, _ = http.NewRequest(http.MethodGet, strings.TrimPrefix(string(resBody), "http://localhost:8080") , nil)
 			tt.u.getOriginalURL(&tt.args[1].w, tt.args[1].r, urls)
 			getRes := tt.args[1].w.Result()
+			defer getRes.Body.Close()
 			getResBody, _ := io.ReadAll(getRes.Body)
 
 			if !assert.Equal(t, http.StatusTemporaryRedirect, getRes.StatusCode) {
