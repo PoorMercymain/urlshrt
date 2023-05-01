@@ -82,7 +82,9 @@ func TestRouter(t *testing.T) {
         {"/aBcDeFg", 307, "", "https://ya.ru"},
     }
 
-    _, post := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
+    re, post := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
 	assert.Equal(t, testTable[0].want, post)
-	testRequest(t, ts, testTable[1].status, testTable[1].body, "GET", testTable[1].url)
+	re.Body.Close()
+	re, _ = testRequest(t, ts, testTable[1].status, testTable[1].body, "GET", testTable[1].url)
+	re.Body.Close()
 }
