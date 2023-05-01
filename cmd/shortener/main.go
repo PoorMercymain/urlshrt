@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -12,10 +13,12 @@ func main() {
 
 	urls := make([]domain.URL, 0)
 
-	mux := http.NewServeMux()
-	mux.Handle(`/`, http.HandlerFunc(url.ShortenURLHandler(urls)))
+	r := chi.NewRouter()
 
-	err := http.ListenAndServe(":8080", mux)
+	r.Post("/", url.GenerateShortURLHandler(urls))
+	r.Get("/{short}", url.GetOriginalURLHandler(urls))
+
+	err := http.ListenAndServe(":8080", r)
     if err != nil {
         fmt.Println(err)
 		return

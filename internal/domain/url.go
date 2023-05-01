@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type URL struct {
@@ -18,7 +20,7 @@ func (u URL) String() string {
 	return u.Original + " " + u.Shortened
 }
 
-func (u URL) generateShortURL(w http.ResponseWriter, r *http.Request, urls []URL) {
+func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
@@ -37,42 +39,36 @@ func (u URL) generateShortURL(w http.ResponseWriter, r *http.Request, urls []URL
 	w.WriteHeader(400)
 }
 
-func (u URL) getOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) {
-	var shortenedURL string
-			if len(r.URL.String()) > 1 {
-				shortenedURL = r.URL.String()[1:]
-			} else {
-				shortenedURL = ""
-			}
-
-			db := NewDB("txt", "testTxtDB.txt")
-
-			savedUrls, err := db.getUrls()
-			if err != nil {
-				savedUrls = urls
-			}
-
-			for _, url := range savedUrls {
-				if url.Shortened == shortenedURL {
-					w.Header().Set("Location", url.Original)
-					w.WriteHeader(307)
-					return
-				}
-			}
-
-			w.WriteHeader(400)
+func (u URL) GenerateShortURLHandler(urls []URL) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u.GenerateShortURL(w, r, urls)
+	}
 }
 
-func (u URL) ShortenURLHandler(urls []URL) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			u.generateShortURL(w, r, urls)
-		case http.MethodGet:
-			u.getOriginalURL(w, r, urls)
-		default:
-			http.Error(w, "Bad request", http.StatusBadRequest)
+func (u URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) {
+	shortenedURL := chi.URLParam(r, "short")
+
+	db := NewDB("txt", "testTxtDB.txt")
+
+	savedUrls, err := db.getUrls()
+	if err != nil {
+		savedUrls = urls
+	}
+
+	for _, url := range savedUrls {
+		if url.Shortened == shortenedURL {
+			w.Header().Set("Location", url.Original)
+			w.WriteHeader(307)
+			return
 		}
+	}
+
+	w.WriteHeader(400)
+}
+
+func (u URL) GetOriginalURLHandler(urls []URL) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u.GetOriginalURL(w, r, urls)
 	}
 }
 

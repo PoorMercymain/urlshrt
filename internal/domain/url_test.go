@@ -7,66 +7,81 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestShortenURLHandler(t *testing.T) {
-	type args struct {
-		w httptest.ResponseRecorder
-		r *http.Request
-		wantStatus int
+func testRequest(t *testing.T, ts *httptest.Server, code int , body, method, path string) (*http.Response, string) {
+	var req *http.Request
+	var err error
+	if body == "" {
+		req, err = http.NewRequest(method, ts.URL+path, nil)
+	} else {
+		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	}
-	tests := []struct {
-		name string
-		u    URL
-		args []args
 
-	}{
-		{
-			name: "test ya.ru",
-			u: URL{},
-			args: []args{
-					args{
-						w: *httptest.NewRecorder(),
-						r: func () *http.Request {
-							req, _ :=  http.NewRequest(http.MethodPost, "http://localhost:8080/", strings.NewReader("https://ya.ru"))
-							return req
-						}(),
-						wantStatus: http.StatusCreated,
-					},
-					args{
-						w: *httptest.NewRecorder(),
-						r: nil,
-						wantStatus: http.StatusTemporaryRedirect,
-					},
-				},
-		},
+	if method == "POST" {
+		req.Header.Set("Content-Type", "text/plain")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.args[0].r.Header.Set("Content-Type", "text/plain")
-			urls := make([]URL, 0)
-			urls = append(urls, URL{Original: "https://ya.ru", Shortened: "aBcDeFg"})
-			tt.u.generateShortURL(&tt.args[0].w, tt.args[0].r, urls)
 
-			res := tt.args[0].w.Result()
-			defer res.Body.Close()
-			t.Log(urls)
-			assert.Equal(t, http.StatusCreated, res.StatusCode)
-			resBody, err := io.ReadAll(res.Body)
-			t.Log(string(resBody))
-			require.NoError(t, err)
-			tt.args[1].r, _ = http.NewRequest(http.MethodGet, strings.TrimPrefix(string(resBody), "http://localhost:8080") , nil)
-			tt.u.getOriginalURL(&tt.args[1].w, tt.args[1].r, urls)
-			getRes := tt.args[1].w.Result()
-			defer getRes.Body.Close()
-			getResBody, _ := io.ReadAll(getRes.Body)
+    require.NoError(t, err)
 
-			if !assert.Equal(t, http.StatusTemporaryRedirect, getRes.StatusCode) {
-				t.Log(getResBody)
-			}
-			assert.Equal(t, "https://ya.ru", getRes.Header.Get("Location"))
-		})
+    resp, err := ts.Client().Do(req)
+	t.Log(req)
+	if err != http.ErrUseLastResponse {
+		require.NoError(t, err)
 	}
+
+    defer resp.Body.Close()
+
+	if method != "GET" {
+		assert.Equal(t, code, resp.StatusCode)
+	} else {
+		client := &http.Client{
+        	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+            	return http.ErrUseLastResponse
+        	},
+    	}
+
+    	resp, _ := client.Get(ts.URL+path)
+		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+    respBody, err := io.ReadAll(resp.Body)
+    require.NoError(t, err)
+
+    return resp, string(respBody)
+}
+
+func router() chi.Router {
+    r := chi.NewRouter()
+
+	var url URL
+	urls := make([]URL, 0)
+	urls = append(urls, URL{Original: "https://ya.ru", Shortened: "aBcDeFg"})
+
+	r.Post("/", url.GenerateShortURLHandler(urls))
+	r.Get("/{short}", url.GetOriginalURLHandler(urls))
+
+	return r
+}
+
+func TestRouter(t *testing.T) {
+    ts := httptest.NewServer(router())
+
+    defer ts.Close()
+
+	var testTable = []struct {
+        url    string
+        status int
+		body   string
+		want   string
+    }{
+        {"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
+        {"/aBcDeFg", 307, "", "https://ya.ru"},
+    }
+
+    _, post := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
+	assert.Equal(t, testTable[0].want, post)
+	testRequest(t, ts, testTable[1].status, testTable[1].body, "GET", testTable[1].url)
 }
