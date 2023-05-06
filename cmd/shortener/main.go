@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -13,8 +14,16 @@ import (
 func main() {
 	var conf config.Config
 
-	flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
-	flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
+	HTTPEnv, HTTPSet := os.LookupEnv("SERVER_ADDRESS")
+	ShortEnv, ShortSet := os.LookupEnv("BASE_URL")
+	//conf.HTTPAddr = config.AddrWithCheck{Addr: }
+
+	if !HTTPSet {
+		flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
+	}
+	if !ShortSet {
+		flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
+	}
 
 	url := domain.URL{}
 
@@ -23,6 +32,14 @@ func main() {
 	r := chi.NewRouter()
 
 	flag.Parse()
+
+	if HTTPSet {
+		conf.HTTPAddr = config.AddrWithCheck{Addr: HTTPEnv, WasSet: true}
+	}
+
+	if ShortSet {
+		conf.ShortAddr = config.AddrWithCheck{Addr: ShortEnv, WasSet: true}
+	}
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: "localhost:8080", WasSet: true}
