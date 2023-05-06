@@ -20,7 +20,7 @@ func (u URL) String() string {
 	return u.Original + " " + u.Shortened
 }
 
-func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL) {
+func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL, addr string) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
@@ -33,15 +33,21 @@ func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL
 		}
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(201)
-		w.Write([]byte("http://localhost:8080/" + shortenedURL))
+		if !strings.HasPrefix(addr, "http://") {
+			addr = "http://" + addr
+		}
+		if !strings.HasSuffix(addr, "/") {
+			addr = addr + "/"
+		}
+		w.Write([]byte(addr + shortenedURL))
 		return
 	}
 	w.WriteHeader(400)
 }
 
-func (u URL) GenerateShortURLHandler(urls []URL) http.HandlerFunc {
+func (u URL) GenerateShortURLHandler(urls []URL, addr string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GenerateShortURL(w, r, urls)
+		u.GenerateShortURL(w, r, urls, addr)
 	}
 }
 
