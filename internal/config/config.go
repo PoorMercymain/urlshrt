@@ -1,12 +1,12 @@
 package config
 
 type Config struct {
-	HttpAddr AddrWithCheck
+	HTTPAddr  AddrWithCheck
 	ShortAddr AddrWithCheck
 }
 
 type AddrWithCheck struct {
-	Addr string
+	Addr   string
 	WasSet bool
 }
 

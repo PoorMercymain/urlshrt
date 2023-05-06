@@ -13,7 +13,7 @@ import (
 func main() {
 	var conf config.Config
 
-	flag.Var(&conf.HttpAddr, "a", "адрес http-сервера")
+	flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
 	flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
 
 	url := domain.URL{}
@@ -24,20 +24,20 @@ func main() {
 
 	flag.Parse()
 
-	if !conf.HttpAddr.WasSet && !conf.ShortAddr.WasSet {
+	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: "localhost:8080", WasSet: true}
-		conf.HttpAddr = conf.ShortAddr
-	} else if !conf.HttpAddr.WasSet {
-		conf.HttpAddr = conf.ShortAddr
+		conf.HTTPAddr = conf.ShortAddr
+	} else if !conf.HTTPAddr.WasSet {
+		conf.HTTPAddr = conf.ShortAddr
 	} else if !conf.ShortAddr.WasSet {
-		conf.ShortAddr = conf.HttpAddr
+		conf.ShortAddr = conf.HTTPAddr
 	}
 
 	r.Post("/", url.GenerateShortURLHandler(urls, conf.ShortAddr.Addr))
 	r.Get("/{short}", url.GetOriginalURLHandler(urls))
 
 	fmt.Println(conf)
-	err := http.ListenAndServe(conf.HttpAddr.Addr, r)
+	err := http.ListenAndServe(conf.HTTPAddr.Addr, r)
     if err != nil {
         fmt.Println(err)
 		return
