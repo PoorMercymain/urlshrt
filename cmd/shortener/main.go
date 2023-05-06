@@ -30,8 +30,10 @@ func main() {
 	urls := make([]domain.URL, 0)
 
 	r := chi.NewRouter()
-
-	flag.Parse()
+	
+	if !HTTPSet || !ShortSet {
+		flag.Parse()
+	}
 
 	if HTTPSet {
 		conf.HTTPAddr = config.AddrWithCheck{Addr: HTTPEnv, WasSet: true}
