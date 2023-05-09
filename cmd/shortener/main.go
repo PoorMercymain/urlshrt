@@ -14,14 +14,14 @@ import (
 func main() {
 	var conf config.Config
 
-	HTTPEnv, HTTPSet := os.LookupEnv("SERVER_ADDRESS")
-	ShortEnv, ShortSet := os.LookupEnv("BASE_URL")
+	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
+	shortEnv, shortSet := os.LookupEnv("BASE_URL")
 	//conf.HTTPAddr = config.AddrWithCheck{Addr: }
 
-	if !HTTPSet {
+	if !httpSet {
 		flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
 	}
-	if !ShortSet {
+	if !shortSet {
 		flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
 	}
 
@@ -30,17 +30,17 @@ func main() {
 	urls := make([]domain.URL, 0)
 
 	r := chi.NewRouter()
-	
-	if !HTTPSet || !ShortSet {
+
+	if !httpSet || !shortSet {
 		flag.Parse()
 	}
 
-	if HTTPSet {
-		conf.HTTPAddr = config.AddrWithCheck{Addr: HTTPEnv, WasSet: true}
+	if httpSet {
+		conf.HTTPAddr = config.AddrWithCheck{Addr: httpEnv, WasSet: true}
 	}
 
-	if ShortSet {
-		conf.ShortAddr = config.AddrWithCheck{Addr: ShortEnv, WasSet: true}
+	if shortSet {
+		conf.ShortAddr = config.AddrWithCheck{Addr: shortEnv, WasSet: true}
 	}
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
@@ -57,8 +57,8 @@ func main() {
 
 	fmt.Println(conf)
 	err := http.ListenAndServe(conf.HTTPAddr.Addr, r)
-    if err != nil {
-        fmt.Println(err)
+	if err != nil {
+		fmt.Println(err)
 		return
-    }
+	}
 }

@@ -12,12 +12,12 @@ import (
 )
 
 type URL struct {
-	Original string
+	Original  string
 	Shortened string
 }
 
 func (u URL) String() string {
-	return u.Original + " " + u.Shortened
+	return fmt.Sprintf("%s %s", u.Original, u.Shortened)
 }
 
 func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL, addr string) {
@@ -32,7 +32,7 @@ func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(201)
+		w.WriteHeader(http.StatusCreated)
 		if !strings.HasPrefix(addr, "http://") {
 			addr = "http://" + addr
 		}
@@ -42,7 +42,7 @@ func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL
 		w.Write([]byte(addr + shortenedURL))
 		return
 	}
-	w.WriteHeader(400)
+	w.WriteHeader(http.StatusBadRequest)
 }
 
 func (u URL) GenerateShortURLHandler(urls []URL, addr string) http.HandlerFunc {
@@ -64,12 +64,12 @@ func (u URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) 
 	for _, url := range savedUrls {
 		if url.Shortened == shortenedURL {
 			w.Header().Set("Location", url.Original)
-			w.WriteHeader(307)
+			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		}
 	}
 
-	w.WriteHeader(400)
+	w.WriteHeader(http.StatusBadRequest)
 }
 
 func (u URL) GetOriginalURLHandler(urls []URL) http.HandlerFunc {
@@ -100,7 +100,7 @@ func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 
 	length := 7
 
-    shortenedURL = generateRandomString(length)
+	shortenedURL = generateRandomString(length)
 
 	for _, url := range savedUrls {
 		for shortenedURL == url.Shortened {
@@ -110,7 +110,7 @@ func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 
 	u.Shortened = shortenedURL
 
-	var urlStrArr []string
+	urlStrArr := make([]string, 0)
 
 	urlStrArr = append(urlStrArr, u.String())
 	if errDB == nil {
@@ -125,13 +125,13 @@ func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 func generateRandomString(length int) string {
 	randStrBytes := make([]byte, length)
 
-    for i := 0; i < length; i++ {
+	for i := 0; i < length; i++ {
 		symbolCode := rand.Intn(53)
 		if symbolCode > 25 {
 			symbolCode += 6
 		}
-        randStrBytes[i] = byte(65 + symbolCode)
-    }
+		randStrBytes[i] = byte(65 + symbolCode)
+	}
 
 	return string(randStrBytes)
 }

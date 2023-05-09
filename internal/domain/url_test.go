@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testRequest(t *testing.T, ts *httptest.Server, code int , body, method, path string) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path string) (*http.Response, string) {
 	var req *http.Request
 	var err error
 	if body == "" {
@@ -25,37 +25,37 @@ func testRequest(t *testing.T, ts *httptest.Server, code int , body, method, pat
 		req.Header.Set("Content-Type", "text/plain")
 	}
 
-    require.NoError(t, err)
+	require.NoError(t, err)
 
-    resp, err := ts.Client().Do(req)
+	resp, err := ts.Client().Do(req)
 	t.Log(req)
 	if err != http.ErrUseLastResponse {
 		require.NoError(t, err)
 	}
 
-    defer resp.Body.Close()
+	defer resp.Body.Close()
 
 	if method != "GET" {
 		assert.Equal(t, code, resp.StatusCode)
 	} else {
 		client := &http.Client{
-        	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-            	return http.ErrUseLastResponse
-        	},
-    	}
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
 
-    	resp, _ := client.Get(ts.URL+path)
+		resp, _ := client.Get(ts.URL + path)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	}
-    respBody, err := io.ReadAll(resp.Body)
-    require.NoError(t, err)
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 
-    return resp, string(respBody)
+	return resp, string(respBody)
 }
 
 func router() chi.Router {
-    r := chi.NewRouter()
+	r := chi.NewRouter()
 
 	var url URL
 	urls := make([]URL, 0)
@@ -70,21 +70,21 @@ func router() chi.Router {
 }
 
 func TestRouter(t *testing.T) {
-    ts := httptest.NewServer(router())
+	ts := httptest.NewServer(router())
 
-    defer ts.Close()
+	defer ts.Close()
 
 	var testTable = []struct {
-        url    string
-        status int
+		url    string
+		status int
 		body   string
 		want   string
-    }{
-        {"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
-        {"/aBcDeFg", 307, "", "https://ya.ru"},
-    }
+	}{
+		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
+		{"/aBcDeFg", 307, "", "https://ya.ru"},
+	}
 
-    re, post := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
+	re, post := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
 	assert.Equal(t, testTable[0].want, post)
 	re.Body.Close()
 	re, _ = testRequest(t, ts, testTable[1].status, testTable[1].body, "GET", testTable[1].url)

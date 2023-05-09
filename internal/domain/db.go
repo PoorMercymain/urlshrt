@@ -17,16 +17,16 @@ func NewDB(dBType string, location string) DB {
 
 func (db DB) getUrls() ([]URL, error) {
 	f, err := os.Open(db.location)
-    if err != nil {
-        return make([]URL, 0), err
-    }
+	if err != nil {
+		return make([]URL, 0), err
+	}
 
-    defer func() error {
-        if err := f.Close(); err != nil {
-            return err
-        }
+	defer func() error {
+		if err := f.Close(); err != nil {
+			return err
+		}
 		return nil
-    }()
+	}()
 
 	scanner := bufio.NewScanner(f)
 
@@ -43,18 +43,19 @@ func (db DB) getUrls() ([]URL, error) {
 func (db DB) saveStrings(urlStrings []string) error {
 	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-    	return err
+		return err
 	}
 
 	defer func() error {
-        if err := f.Close(); err != nil {
-            return err
-        }
+		if err := f.Close(); err != nil {
+			return err
+		}
 		return nil
-    }()
+	}()
 
 	for _, str := range urlStrings {
-		f.WriteString(str + "\n")
+		f.WriteString(str)
+		f.WriteString("\n")
 	}
 
 	return nil
