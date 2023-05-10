@@ -98,13 +98,13 @@ func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 
 	var shortenedURL string
 
-	shrtUrlReqLen := 7
+	shrtURLReqLen := 7
 
-	shortenedURL = generateRandomString(shrtUrlReqLen)
+	shortenedURL = generateRandomString(shrtURLReqLen)
 
 	for _, url := range savedUrls {
 		for shortenedURL == url.Shortened {
-			shortenedURL = generateRandomString(shrtUrlReqLen)
+			shortenedURL = generateRandomString(shrtURLReqLen)
 		}
 	}
 
