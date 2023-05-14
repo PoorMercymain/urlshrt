@@ -16,11 +16,11 @@ type URL struct {
 	Shortened string
 }
 
-func (u URL) String() string {
+func (u *URL) String() string {
 	return fmt.Sprintf("%s %s", u.Original, u.Shortened)
 }
 
-func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL, addr string) {
+func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls *[]URL, addr string) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
@@ -45,13 +45,13 @@ func (u URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls []URL
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u URL) GenerateShortURLHandler(urls []URL, addr string) http.HandlerFunc {
+func (u *URL) GenerateShortURLHandler(urls *[]URL, addr string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		u.GenerateShortURL(w, r, urls, addr)
 	}
 }
 
-func (u URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) {
+func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) {
 	shortenedURL := chi.URLParam(r, "short")
 
 	db := NewDB("txt", "testTxtDB.txt")
@@ -72,13 +72,13 @@ func (u URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) 
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u URL) GetOriginalURLHandler(urls []URL) http.HandlerFunc {
+func (u *URL) GetOriginalURLHandler(urls []URL) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		u.GetOriginalURL(w, r, urls)
 	}
 }
 
-func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
+func (u *URL) ShortenRawURL(rawURL string, urls *[]URL) (string, error) {
 	rand.Seed(time.Now().Unix())
 
 	db := NewDB("txt", "testTxtDB.txt")
@@ -87,7 +87,7 @@ func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 
 	savedUrls, errDB := db.getUrls()
 	if errDB != nil {
-		savedUrls = urls
+		savedUrls = *urls
 	}
 
 	for _, url := range savedUrls {
@@ -113,24 +113,26 @@ func (u URL) ShortenRawURL(rawURL string, urls []URL) (string, error) {
 	urlStrArr := make([]string, 0)
 
 	urlStrArr = append(urlStrArr, u.String())
+
 	if errDB == nil {
 		db.saveStrings(urlStrArr)
 	}
-	urls = append(urls, u)
-	fmt.Println(urls)
+	*urls = append(*urls, *u)
 
 	return u.Shortened, nil
 }
 
 func generateRandomString(length int) string {
 	randStrBytes := make([]byte, length)
+	shiftToSkipSymbols := 6
 
 	for i := 0; i < length; i++ {
-		symbolCode := rand.Intn(53)
-		if symbolCode > 25 {
-			symbolCode += 6
+		symbolCodeLimiter := 'z'-'A' - shiftToSkipSymbols
+		symbolCode := rand.Intn(symbolCodeLimiter)
+		if symbolCode > 'Z'-'A' {
+			symbolCode += shiftToSkipSymbols
 		}
-		randStrBytes[i] = byte(65 + symbolCode)
+		randStrBytes[i] = byte('A' + symbolCode)
 	}
 
 	return string(randStrBytes)

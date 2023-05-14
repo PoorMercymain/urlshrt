@@ -16,7 +16,6 @@ func main() {
 
 	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
 	shortEnv, shortSet := os.LookupEnv("BASE_URL")
-	//conf.HTTPAddr = config.AddrWithCheck{Addr: }
 
 	if !httpSet {
 		flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
@@ -27,7 +26,7 @@ func main() {
 
 	url := domain.URL{}
 
-	urls := make([]domain.URL, 0)
+	urls := make([]domain.URL, 1)
 
 	r := chi.NewRouter()
 
@@ -52,7 +51,7 @@ func main() {
 		conf.ShortAddr = conf.HTTPAddr
 	}
 
-	r.Post("/", url.GenerateShortURLHandler(urls, conf.ShortAddr.Addr))
+	r.Post("/", url.GenerateShortURLHandler(&urls, conf.ShortAddr.Addr))
 	r.Get("/{short}", url.GetOriginalURLHandler(urls))
 
 	fmt.Println(conf)

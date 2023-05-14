@@ -63,7 +63,7 @@ func router() chi.Router {
 
 	host := "http://localhost:8080/"
 
-	r.Post("/", url.GenerateShortURLHandler(urls, host))
+	r.Post("/", url.GenerateShortURLHandler(&urls, host))
 	r.Get("/{short}", url.GetOriginalURLHandler(urls))
 
 	return r
