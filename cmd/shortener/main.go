@@ -10,6 +10,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -54,11 +55,23 @@ func main() {
 
 	db := domain.NewDB("txt", "testTxtDB.txt")
 
-	r.Post("/", url.GenerateShortURLHandler(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db))
-	r.Get("/{short}", url.GetOriginalURLHandler(urls, db))
+	logger, err := zap.NewDevelopment()
+    if err != nil {
+		fmt.Println(err)
+        return
+    }
+    defer logger.Sync()
+
+	sugar := *logger.Sugar()
+
+	postContext := domain.NewContext(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db)
+	getContext := domain.NewContext(&urls, "", 0, db)
+
+	r.Post("/", domain.WithLogging(url.GenerateShortURLHandler(*postContext), &sugar))
+	r.Get("/{short}", domain.WithLogging(url.GetOriginalURLHandler(*getContext), &sugar))
 
 	fmt.Println(conf)
-	err := http.ListenAndServe(conf.HTTPAddr.Addr, r)
+	err = http.ListenAndServe(conf.HTTPAddr.Addr, r)
 	if err != nil {
 		fmt.Println(err)
 		return

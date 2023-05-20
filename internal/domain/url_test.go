@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path string) (*http.Response, string) {
@@ -66,8 +68,20 @@ func router() chi.Router {
 
 	db := NewDB("txt", "testTxtDB.txt")
 
-	r.Post("/", url.GenerateShortURLHandler(&urls, host, time.Now().Unix(), db))
-	r.Get("/{short}", url.GetOriginalURLHandler(urls, db))
+	logger, err := zap.NewDevelopment()
+    if err != nil {
+		fmt.Println(err)
+        return nil
+    }
+    defer logger.Sync()
+
+	sugar := *logger.Sugar()
+
+	postContext := NewContext(&urls, host, time.Now().Unix(), db)
+	getContext := NewContext(&urls, "", 0, db)
+
+	r.Post("/", WithLogging(url.GenerateShortURLHandler(*postContext), &sugar))
+	r.Get("/{short}", WithLogging(url.GetOriginalURLHandler(*getContext), &sugar))
 
 	return r
 }

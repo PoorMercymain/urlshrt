@@ -19,43 +19,43 @@ func (u *URL) String() string {
 	return fmt.Sprintf("%s %s", u.Original, u.Shortened)
 }
 
-func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls *[]URL, addr string, randSeed int64, db *Database) {
+func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, context ctx) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
 		originalURL := scanner.Text()
 
-		shortenedURL, err := u.ShortenRawURL(originalURL, urls, randSeed, db)
+		shortenedURL, err := u.ShortenRawURL(originalURL, context.urls, context.randomSeed, context.db)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
-		if !strings.HasPrefix(addr, "http://") {
-			addr = "http://" + addr
+		if !strings.HasPrefix(context.address, "http://") {
+			context.address = "http://" + context.address
 		}
-		if !strings.HasSuffix(addr, "/") {
-			addr = addr + "/"
+		if !strings.HasSuffix(context.address, "/") {
+			context.address = context.address + "/"
 		}
-		w.Write([]byte(addr + shortenedURL))
+		w.Write([]byte(context.address + shortenedURL))
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u *URL) GenerateShortURLHandler(urls *[]URL, addr string, randSeed int64, db *Database) http.HandlerFunc {
+func (u *URL) GenerateShortURLHandler(context ctx) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GenerateShortURL(w, r, urls, addr, randSeed, db)
+		u.GenerateShortURL(w, r, context)
 	}
 }
 
-func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL, db *Database) {
+func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, context ctx) {
 	shortenedURL := chi.URLParam(r, "short")
 
-	savedUrls, err := db.getUrls()
+	savedUrls, err := context.db.getUrls()
 	if err != nil {
-		savedUrls = urls
+		savedUrls = *context.urls
 	}
 
 	for _, url := range savedUrls {
@@ -69,9 +69,9 @@ func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL,
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u *URL) GetOriginalURLHandler(urls []URL, db *Database) http.HandlerFunc {
+func (u *URL) GetOriginalURLHandler(context ctx) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GetOriginalURL(w, r, urls, db)
+		u.GetOriginalURL(w, r, context)
 	}
 }
 
