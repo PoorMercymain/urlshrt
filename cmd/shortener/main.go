@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -51,8 +52,10 @@ func main() {
 		conf.ShortAddr = conf.HTTPAddr
 	}
 
-	r.Post("/", url.GenerateShortURLHandler(&urls, conf.ShortAddr.Addr))
-	r.Get("/{short}", url.GetOriginalURLHandler(urls))
+	db := domain.NewDB("txt", "testTxtDB.txt")
+
+	r.Post("/", url.GenerateShortURLHandler(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db))
+	r.Get("/{short}", url.GetOriginalURLHandler(urls, db))
 
 	fmt.Println(conf)
 	err := http.ListenAndServe(conf.HTTPAddr.Addr, r)

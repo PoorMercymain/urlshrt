@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -63,8 +64,10 @@ func router() chi.Router {
 
 	host := "http://localhost:8080/"
 
-	r.Post("/", url.GenerateShortURLHandler(&urls, host))
-	r.Get("/{short}", url.GetOriginalURLHandler(urls))
+	db := NewDB("txt", "testTxtDB.txt")
+
+	r.Post("/", url.GenerateShortURLHandler(&urls, host, time.Now().Unix(), db))
+	r.Get("/{short}", url.GetOriginalURLHandler(urls, db))
 
 	return r
 }

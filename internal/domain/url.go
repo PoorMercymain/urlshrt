@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -20,13 +19,13 @@ func (u *URL) String() string {
 	return fmt.Sprintf("%s %s", u.Original, u.Shortened)
 }
 
-func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls *[]URL, addr string) {
+func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls *[]URL, addr string, randSeed int64, db *Database) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
 		scanner := bufio.NewScanner(r.Body)
 		scanner.Scan()
 		originalURL := scanner.Text()
 
-		shortenedURL, err := u.ShortenRawURL(originalURL, urls)
+		shortenedURL, err := u.ShortenRawURL(originalURL, urls, randSeed, db)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
@@ -45,16 +44,14 @@ func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, urls *[]U
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u *URL) GenerateShortURLHandler(urls *[]URL, addr string) http.HandlerFunc {
+func (u *URL) GenerateShortURLHandler(urls *[]URL, addr string, randSeed int64, db *Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GenerateShortURL(w, r, urls, addr)
+		u.GenerateShortURL(w, r, urls, addr, randSeed, db)
 	}
 }
 
-func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL) {
+func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL, db *Database) {
 	shortenedURL := chi.URLParam(r, "short")
-
-	db := NewDB("txt", "testTxtDB.txt")
 
 	savedUrls, err := db.getUrls()
 	if err != nil {
@@ -72,16 +69,14 @@ func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, urls []URL)
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u *URL) GetOriginalURLHandler(urls []URL) http.HandlerFunc {
+func (u *URL) GetOriginalURLHandler(urls []URL, db *Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GetOriginalURL(w, r, urls)
+		u.GetOriginalURL(w, r, urls, db)
 	}
 }
 
-func (u *URL) ShortenRawURL(rawURL string, urls *[]URL) (string, error) {
-	rand.Seed(time.Now().Unix())
-
-	db := NewDB("txt", "testTxtDB.txt")
+func (u *URL) ShortenRawURL(rawURL string, urls *[]URL, randSeed int64, db *Database) (string, error) {
+	random := rand.New(rand.NewSource(randSeed))
 
 	u.Original = rawURL
 
@@ -100,19 +95,17 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]URL) (string, error) {
 
 	shrtURLReqLen := 7
 
-	shortenedURL = generateRandomString(shrtURLReqLen)
+	shortenedURL = generateRandomString(shrtURLReqLen, random)
 
 	for _, url := range savedUrls {
 		for shortenedURL == url.Shortened {
-			shortenedURL = generateRandomString(shrtURLReqLen)
+			shortenedURL = generateRandomString(shrtURLReqLen, random)
 		}
 	}
 
 	u.Shortened = shortenedURL
 
-	urlStrArr := make([]string, 0)
-
-	urlStrArr = append(urlStrArr, u.String())
+	urlStrArr := []string{ u.String() }
 
 	if errDB == nil {
 		db.saveStrings(urlStrArr)
@@ -122,13 +115,13 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]URL) (string, error) {
 	return u.Shortened, nil
 }
 
-func generateRandomString(length int) string {
+func generateRandomString(length int, random *rand.Rand) string {
 	randStrBytes := make([]byte, length)
 	shiftToSkipSymbols := 6
 
 	for i := 0; i < length; i++ {
 		symbolCodeLimiter := 'z'-'A' - shiftToSkipSymbols
-		symbolCode := rand.Intn(symbolCodeLimiter)
+		symbolCode := random.Intn(symbolCodeLimiter)
 		if symbolCode > 'Z'-'A' {
 			symbolCode += shiftToSkipSymbols
 		}
