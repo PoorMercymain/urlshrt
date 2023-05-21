@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,22 +17,25 @@ import (
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path string) (*http.Response, string) {
+
 	var req *http.Request
 	var err error
 	if body == "" {
 		req, err = http.NewRequest(method, ts.URL+path, nil)
-	} else {
+	} else if method == "POST"{
 		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
+	} else if method == "POST with JSON" {
+		req, err = http.NewRequest("POST", ts.URL+path, strings.NewReader(body))
 	}
-
 	if method == "POST" {
 		req.Header.Set("Content-Type", "text/plain")
+	} else if method == "POST with JSON" {
+		req.Header.Set("Content-Type", "application/json")
 	}
 
 	require.NoError(t, err)
 
 	resp, err := ts.Client().Do(req)
-	t.Log(req)
 	if err != http.ErrUseLastResponse {
 		require.NoError(t, err)
 	}
@@ -51,7 +55,17 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		resp.Body.Close()
 		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	}
-	respBody, err := io.ReadAll(resp.Body)
+
+	var respBody []byte
+	var short ShortenedURL
+
+	if method != "POST with JSON" {
+		respBody, err = io.ReadAll(resp.Body)
+	} else {
+		err = json.NewDecoder(resp.Body).Decode(&short)
+		respBody = []byte(short.Result)
+	}
+
 	require.NoError(t, err)
 
 	return resp, string(respBody)
@@ -77,11 +91,12 @@ func router() chi.Router {
 
 	sugar := *logger.Sugar()
 
-	postContext := NewContext(&urls, host, time.Now().Unix(), db)
-	getContext := NewContext(&urls, "", 0, db)
+	postContext := NewContext(&urls, host, time.Now().Unix(), db, "", false)
+	getContext := NewContext(&urls, "", 0, db, "", false)
 
 	r.Post("/", WithLogging(url.GenerateShortURLHandler(*postContext), &sugar))
 	r.Get("/{short}", WithLogging(url.GetOriginalURLHandler(*getContext), &sugar))
+	r.Post("/api/shorten", WithLogging(url.GenerateShortURLFromJSONHandler(*postContext), &sugar))
 
 	return r
 }
@@ -99,11 +114,15 @@ func TestRouter(t *testing.T) {
 	}{
 		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
 		{"/aBcDeFg", 307, "", "https://ya.ru"},
+		{url: "/api/shorten", status: 200, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg"},
 	}
 
 	re, post := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
 	assert.Equal(t, testTable[0].want, post)
 	re.Body.Close()
 	re, _ = testRequest(t, ts, testTable[1].status, testTable[1].body, "GET", testTable[1].url)
+	re.Body.Close()
+	re, postJSON := testRequest(t, ts, testTable[2].status, testTable[2].body, "POST with JSON", testTable[2].url)
+	assert.Equal(t, testTable[2].want, postJSON)
 	re.Body.Close()
 }

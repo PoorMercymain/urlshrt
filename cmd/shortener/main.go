@@ -64,11 +64,13 @@ func main() {
 
 	sugar := *logger.Sugar()
 
-	postContext := domain.NewContext(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db)
-	getContext := domain.NewContext(&urls, "", 0, db)
+	postContext := domain.NewContext(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db, "", false)
+	getContext := domain.NewContext(&urls, "", 0, db, "", false)
+
 
 	r.Post("/", domain.WithLogging(url.GenerateShortURLHandler(*postContext), &sugar))
 	r.Get("/{short}", domain.WithLogging(url.GetOriginalURLHandler(*getContext), &sugar))
+	r.Post("/api/shorten", domain.WithLogging(url.GenerateShortURLFromJSONHandler(*postContext), &sugar))
 
 	fmt.Println(conf)
 	err = http.ListenAndServe(conf.HTTPAddr.Addr, r)

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -15,31 +17,82 @@ type URL struct {
 	Shortened string
 }
 
+type OriginalURL struct {
+	URL string `json:"url"`
+	IsSet bool `json:"-"`
+}
+
+type ShortenedURL struct {
+	Result string `json:"result"`
+}
+
 func (u *URL) String() string {
 	return fmt.Sprintf("%s %s", u.Original, u.Shortened)
 }
 
+func (u *URL) GenerateShortURLFromJSONHandler(context ctx) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request)  {
+		var orig OriginalURL
+		if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
+            http.Error(w, err.Error(), http.StatusBadRequest)
+            return
+        }
+		orig.IsSet = true
+
+		context.json = orig
+
+		u.GenerateShortURL(w, r, context)
+	}
+}
+
 func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, context ctx) {
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.ContentLength == 0 {
-		scanner := bufio.NewScanner(r.Body)
-		scanner.Scan()
-		originalURL := scanner.Text()
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.Header.Get("Content-Type") == "application/json" || r.ContentLength == 0 {
+		var originalURL string
+		if context.json.IsSet {
+			originalURL = context.json.URL
+		} else {
+			scanner := bufio.NewScanner(r.Body)
+			scanner.Scan()
+			originalURL = scanner.Text()
+		}
 
 		shortenedURL, err := u.ShortenRawURL(originalURL, context.urls, context.randomSeed, context.db)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusCreated)
-		if !strings.HasPrefix(context.address, "http://") {
-			context.address = "http://" + context.address
+		if !context.json.IsSet {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusCreated)
+			if !strings.HasPrefix(context.address, "http://") {
+				context.address = "http://" + context.address
+			}
+			if !strings.HasSuffix(context.address, "/") {
+				context.address = context.address + "/"
+			}
+			w.Write([]byte(context.address + shortenedURL))
+			return
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if !strings.HasPrefix(context.address, "http://") {
+				context.address = "http://" + context.address
+			}
+			if !strings.HasSuffix(context.address, "/") {
+				context.address = context.address + "/"
+			}
+			var shortenedJSONBytes []byte
+			buf := bytes.NewBuffer(shortenedJSONBytes)
+			shortened := ShortenedURL{Result: context.address + shortenedURL}
+			err = json.NewEncoder(buf).Encode(shortened)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			w.Write(buf.Bytes())
+			return
 		}
-		if !strings.HasSuffix(context.address, "/") {
-			context.address = context.address + "/"
-		}
-		w.Write([]byte(context.address + shortenedURL))
-		return
+
 	}
 	w.WriteHeader(http.StatusBadRequest)
 }
