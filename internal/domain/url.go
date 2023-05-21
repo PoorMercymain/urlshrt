@@ -74,7 +74,7 @@ func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, context c
 			return
 		} else {
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusCreated)
 			if !strings.HasPrefix(context.address, "http://") {
 				context.address = "http://" + context.address
 			}
