@@ -47,7 +47,14 @@ func (u *URL) GenerateShortURLFromJSONHandler(context ctx) http.HandlerFunc {
 }
 
 func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, context ctx) {
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.Header.Get("Content-Type") == "application/json" || r.ContentLength == 0 {
+	contentTypeOk := false
+	for _, val := range r.Header.Values("Content-Type") {
+		if val == "text/plain" {
+			contentTypeOk = true
+			break
+		}
+	}
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.Header.Get("Content-Type") == "application/json" || r.ContentLength == 0 || contentTypeOk {
 		var originalURL string
 		if context.json.IsSet {
 			originalURL = context.json.URL

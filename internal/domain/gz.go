@@ -19,7 +19,7 @@ func (w gzipWriter) Write(b []byte) (int, error) {
 
 func gzipHandle(h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Content-Type") != "application/json" && r.Header.Get("Content-Type") != "text/html" {
+		if r.Header.Get("Content-Type") != "application/json" && r.Header.Get("Content-Type") != "text/html" && r.Header.Get("Content-Type") != "application/x-gzip" {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -34,6 +34,7 @@ func gzipHandle(h http.Handler) http.HandlerFunc {
 				r.Body = gzipReader
 				fmt.Println("gzip got")
 				r.Body.Close()
+				r.Header.Set("Content-Type", "text/plain")
 			}
 		}
 
