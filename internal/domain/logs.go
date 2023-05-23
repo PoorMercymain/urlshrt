@@ -66,6 +66,6 @@ func WithLogging(h http.Handler, sugar *zap.SugaredLogger) http.HandlerFunc {
 		)
 
     }
-	
-    return http.HandlerFunc(logFn)
+
+    return gzipHandle(http.HandlerFunc(logFn))
 }

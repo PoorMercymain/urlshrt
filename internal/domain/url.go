@@ -33,6 +33,7 @@ func (u *URL) String() string {
 func (u *URL) GenerateShortURLFromJSONHandler(context ctx) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request)  {
 		var orig OriginalURL
+
 		if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
             http.Error(w, err.Error(), http.StatusBadRequest)
             return
