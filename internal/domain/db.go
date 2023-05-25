@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type JSONDatabaseStr struct {
@@ -57,6 +58,12 @@ func (db *Database) getUrls() ([]JSONDatabaseStr, error) {
 }
 
 func (db *Database) saveStrings(urls []JSONDatabaseStr) error {
+	err := os.MkdirAll(filepath.Dir(db.location), 0600)
+	if err != nil {
+		fmt.Println("save mkdir", err)
+		return err
+	}
+
 	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		fmt.Println("save", err)
