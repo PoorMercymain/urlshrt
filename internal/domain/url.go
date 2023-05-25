@@ -137,7 +137,7 @@ func (u *URL) GetOriginalURLHandler(context ctx) http.HandlerFunc {
 	}
 }
 
-func (u *URL) ShortenRawURL(rawURL string, urls *[]JsonDatabaseStr, randSeed int64, db *Database) (string, error) {
+func (u *URL) ShortenRawURL(rawURL string, urls *[]JSONDatabaseStr, randSeed int64, db *Database) (string, error) {
 	random := rand.New(rand.NewSource(randSeed))
 
 	u.Original = rawURL
@@ -167,11 +167,11 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]JsonDatabaseStr, randSeed int
 
 	u.Shortened = shortenedURL
 
-	createdURL := JsonDatabaseStr{Uuid: len(*urls), ShortURL: u.Shortened, OriginalURL: u.Original}
+	createdURL := JSONDatabaseStr{UUID: len(*urls), ShortURL: u.Shortened, OriginalURL: u.Original}
 	*urls = append(*urls, createdURL)
 
 	if db.location != "" {
-		db.saveStrings([]JsonDatabaseStr{createdURL})
+		db.saveStrings([]JSONDatabaseStr{createdURL})
 	}
 
 	return u.Shortened, nil

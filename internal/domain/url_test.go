@@ -76,7 +76,7 @@ func router() chi.Router {
 
 	var url URL
 	//urls := make([]URL, 0)
-	urls := []JsonDatabaseStr{{Uuid: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
+	urls := []JSONDatabaseStr{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
 
 	host := "http://localhost:8080/"
 

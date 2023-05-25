@@ -8,8 +8,8 @@ import (
 	"os"
 )
 
-type JsonDatabaseStr struct {
-	Uuid int `json:"uuid"`
+type JSONDatabaseStr struct {
+	UUID int `json:"uuid"`
 	ShortURL string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 }
@@ -23,7 +23,7 @@ func NewDB(dBType string, location string) *Database {
 	return &Database{dBType: dBType, location: location}
 }
 
-func (db *Database) getUrls() ([]JsonDatabaseStr, error) {
+func (db *Database) getUrls() ([]JSONDatabaseStr, error) {
 	f, err := os.Open(db.location)
 	if err != nil {
 		fmt.Println("get", err)
@@ -39,8 +39,8 @@ func (db *Database) getUrls() ([]JsonDatabaseStr, error) {
 
 	scanner := bufio.NewScanner(f)
 
-	jsonSlice := make([]JsonDatabaseStr, 0)
-	var jsonSliceElemBuffer JsonDatabaseStr
+	jsonSlice := make([]JSONDatabaseStr, 0)
+	var jsonSliceElemBuffer JSONDatabaseStr
 
 	for scanner.Scan() {
 		buf := bytes.NewBuffer([]byte(scanner.Text()))
@@ -56,7 +56,7 @@ func (db *Database) getUrls() ([]JsonDatabaseStr, error) {
 	return jsonSlice, nil
 }
 
-func (db *Database) saveStrings(urls []JsonDatabaseStr) error {
+func (db *Database) saveStrings(urls []JSONDatabaseStr) error {
 	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		fmt.Println("save", err)

@@ -32,7 +32,7 @@ func main() {
 
 	url := domain.URL{}
 
-	urls := make([]domain.JsonDatabaseStr, 1)
+	urls := make([]domain.JSONDatabaseStr, 1)
 
 	r := chi.NewRouter()
 
@@ -44,7 +44,7 @@ func main() {
 
 	fmt.Println(len(os.Args))
 
-	conf.JsonFile = *buf
+	conf.JSONFile = *buf
 
 	if httpSet {
 		conf.HTTPAddr = config.AddrWithCheck{Addr: httpEnv, WasSet: true}
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	if jsonFileSet {
-		conf.JsonFile = jsonFileEnv
+		conf.JSONFile = jsonFileEnv
 	}
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
@@ -67,9 +67,9 @@ func main() {
 		conf.ShortAddr = conf.HTTPAddr
 	}
 
-	fmt.Println(conf.JsonFile)
+	fmt.Println(conf.JSONFile)
 
-	db := domain.NewDB("json", conf.JsonFile)
+	db := domain.NewDB("json", conf.JSONFile)
 
 	logger, err := zap.NewDevelopment()
     if err != nil {
