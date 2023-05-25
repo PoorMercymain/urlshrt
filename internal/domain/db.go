@@ -3,10 +3,16 @@ package domain
 import (
 	"bufio"
 	"bytes"
-	"errors"
+	"encoding/json"
+	"fmt"
 	"os"
-	"strings"
 )
+
+type JsonDatabaseStr struct {
+	Uuid int `json:"uuid"`
+	ShortURL string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
 
 type Database struct {
 	dBType   string
@@ -17,10 +23,11 @@ func NewDB(dBType string, location string) *Database {
 	return &Database{dBType: dBType, location: location}
 }
 
-func (db *Database) getUrls() ([]URL, error) {
+func (db *Database) getUrls() ([]JsonDatabaseStr, error) {
 	f, err := os.Open(db.location)
 	if err != nil {
-		return make([]URL, 0), err
+		fmt.Println("get", err)
+		return nil, err
 	}
 
 	defer func() error {
@@ -32,24 +39,27 @@ func (db *Database) getUrls() ([]URL, error) {
 
 	scanner := bufio.NewScanner(f)
 
-	urls := make([]URL, 0)
+	jsonSlice := make([]JsonDatabaseStr, 0)
+	var jsonSliceElemBuffer JsonDatabaseStr
 
 	for scanner.Scan() {
-		scannedTextSlice := strings.Split(scanner.Text(), " ")
+		buf := bytes.NewBuffer([]byte(scanner.Text()))
 
-		if len(scannedTextSlice) != 2 {
-			return make([]URL, 0), errors.New("incorrect database! It should have 2 elements with a whitespace between them in any string! ")
+		err := json.Unmarshal(buf.Bytes(), &jsonSliceElemBuffer)
+		if err != nil {
+			return nil, err
 		}
-		u := URL{Original: strings.Split(scanner.Text(), " ")[0], Shortened: strings.Split(scanner.Text(), " ")[1]}
-		urls = append(urls, u)
+
+		jsonSlice = append(jsonSlice, jsonSliceElemBuffer)
 	}
 
-	return urls, nil
+	return jsonSlice, nil
 }
 
-func (db *Database) saveStrings(urlStrings []string) error {
+func (db *Database) saveStrings(urls []JsonDatabaseStr) error {
 	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
+		fmt.Println("save", err)
 		return err
 	}
 
@@ -60,8 +70,14 @@ func (db *Database) saveStrings(urlStrings []string) error {
 		return nil
 	}()
 
-	for _, str := range urlStrings {
-		buf := bytes.NewBuffer([]byte(str))
+	fmt.Println(urls)
+
+	for _, str := range urls {
+		jsonByteSlice, err := json.Marshal(str)
+		if err != nil {
+			return err
+		}
+		buf := bytes.NewBuffer(jsonByteSlice)
 		buf.WriteByte('\n')
 		f.WriteString(buf.String())
 	}

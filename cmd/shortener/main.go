@@ -18,23 +18,34 @@ func main() {
 
 	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
 	shortEnv, shortSet := os.LookupEnv("BASE_URL")
+	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
 
+	var buf *string
 	if !httpSet {
 		flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
 	}
 	if !shortSet {
 		flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
 	}
+	if !jsonFileSet {
+		buf = flag.String("f", "./tmp/short-url-db.json", "полное имя файла, куда сохраняются данные в формате JSON")
+	}
 
 	url := domain.URL{}
 
-	urls := make([]domain.URL, 1)
+	urls := make([]domain.JsonDatabaseStr, 1)
 
 	r := chi.NewRouter()
 
-	if !httpSet || !shortSet {
+	fmt.Println(len(os.Args))
+
+	if !httpSet || !shortSet || !jsonFileSet {
 		flag.Parse()
 	}
+
+	fmt.Println(len(os.Args))
+
+	conf.JsonFile = *buf
 
 	if httpSet {
 		conf.HTTPAddr = config.AddrWithCheck{Addr: httpEnv, WasSet: true}
@@ -42,6 +53,10 @@ func main() {
 
 	if shortSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: shortEnv, WasSet: true}
+	}
+
+	if jsonFileSet {
+		conf.JsonFile = jsonFileEnv
 	}
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
@@ -53,7 +68,9 @@ func main() {
 		conf.ShortAddr = conf.HTTPAddr
 	}
 
-	db := domain.NewDB("txt", "testTxtDB.txt")
+	fmt.Println(conf.JsonFile)
+
+	db := domain.NewDB("json", conf.JsonFile)
 
 	logger, err := zap.NewDevelopment()
     if err != nil {

@@ -116,12 +116,13 @@ func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, context ctx
 
 	savedUrls, err := context.db.getUrls()
 	if err != nil {
+		fmt.Println(err)
 		savedUrls = *context.urls
 	}
 
 	for _, url := range savedUrls {
-		if url.Shortened == shortenedURL {
-			w.Header().Set("Location", url.Original)
+		if url.ShortURL == shortenedURL {
+			w.Header().Set("Location", url.OriginalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		}
@@ -136,7 +137,7 @@ func (u *URL) GetOriginalURLHandler(context ctx) http.HandlerFunc {
 	}
 }
 
-func (u *URL) ShortenRawURL(rawURL string, urls *[]URL, randSeed int64, db *Database) (string, error) {
+func (u *URL) ShortenRawURL(rawURL string, urls *[]JsonDatabaseStr, randSeed int64, db *Database) (string, error) {
 	random := rand.New(rand.NewSource(randSeed))
 
 	u.Original = rawURL
@@ -147,8 +148,8 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]URL, randSeed int64, db *Data
 	}
 
 	for _, url := range savedUrls {
-		if u.Original == url.Original {
-			return url.Shortened, nil
+		if u.Original == url.OriginalURL {
+			return url.ShortURL, nil
 		}
 	}
 
@@ -159,19 +160,19 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]URL, randSeed int64, db *Data
 	shortenedURL = generateRandomString(shrtURLReqLen, random)
 
 	for _, url := range savedUrls {
-		for shortenedURL == url.Shortened {
+		for shortenedURL == url.ShortURL {
 			shortenedURL = generateRandomString(shrtURLReqLen, random)
 		}
 	}
 
 	u.Shortened = shortenedURL
 
-	urlStrArr := []string{ u.String() }
+	createdURL := JsonDatabaseStr{Uuid: len(*urls), ShortURL: u.Shortened, OriginalURL: u.Original}
+	*urls = append(*urls, createdURL)
 
-	if errDB == nil {
-		db.saveStrings(urlStrArr)
+	if db.location != "" {
+		db.saveStrings([]JsonDatabaseStr{createdURL})
 	}
-	*urls = append(*urls, *u)
 
 	return u.Shortened, nil
 }
