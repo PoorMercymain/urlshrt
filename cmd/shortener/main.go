@@ -20,16 +20,15 @@ func main() {
 	shortEnv, shortSet := os.LookupEnv("BASE_URL")
 	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
 
+	fmt.Println("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
+
 	var buf *string
-	if !httpSet {
-		flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
-	}
-	if !shortSet {
-		flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
-	}
-	if !jsonFileSet {
-		buf = flag.String("f", "./tmp/short-url-db.json", "полное имя файла, куда сохраняются данные в формате JSON")
-	}
+
+	flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
+
+	flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
+
+	buf = flag.String("f", "./tmp/short-url-db.json", "полное имя файла, куда сохраняются данные в формате JSON")
 
 	url := domain.URL{}
 
