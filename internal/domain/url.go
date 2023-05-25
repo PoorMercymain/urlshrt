@@ -18,8 +18,8 @@ type URL struct {
 }
 
 type OriginalURL struct {
-	URL string `json:"url"`
-	IsSet bool `json:"-"`
+	URL   string `json:"url"`
+	IsSet bool   `json:"-"`
 }
 
 type ShortenedURL struct {
@@ -31,13 +31,13 @@ func (u *URL) String() string {
 }
 
 func (u *URL) GenerateShortURLFromJSONHandler(context ctx) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request)  {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var orig OriginalURL
 
 		if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
-            http.Error(w, err.Error(), http.StatusBadRequest)
-            return
-        }
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		orig.IsSet = true
 
 		context.json = orig
@@ -182,7 +182,7 @@ func generateRandomString(length int, random *rand.Rand) string {
 	shiftToSkipSymbols := 6
 
 	for i := 0; i < length; i++ {
-		symbolCodeLimiter := 'z'-'A' - shiftToSkipSymbols
+		symbolCodeLimiter := 'z' - 'A' - shiftToSkipSymbols
 		symbolCode := random.Intn(symbolCodeLimiter)
 		if symbolCode > 'Z'-'A' {
 			symbolCode += shiftToSkipSymbols

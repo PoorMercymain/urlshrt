@@ -2,10 +2,11 @@ package domain
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 type gzipWriter struct {
@@ -14,11 +15,11 @@ type gzipWriter struct {
 }
 
 func (w gzipWriter) Write(b []byte) (int, error) {
-    return w.Writer.Write(b)
+	return w.Writer.Write(b)
 }
 
-func gzipHandle(h http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func GzipHandle(h http.Handler, sugar *zap.SugaredLogger) http.HandlerFunc {
+	gzipFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" && r.Header.Get("Content-Type") != "text/html" && r.Header.Get("Content-Type") != "application/x-gzip" {
 			h.ServeHTTP(w, r)
 			return
@@ -27,14 +28,19 @@ func gzipHandle(h http.Handler) http.HandlerFunc {
 		for _, val := range r.Header.Values("Content-Encoding") {
 			if val == "gzip" {
 				gzipReader, err := gzip.NewReader(r.Body)
-    			if err != nil {
-        			http.Error(w, err.Error(), http.StatusInternalServerError)
-        			return
-    			}
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 				r.Body = gzipReader
-				fmt.Println("gzip got")
+
 				r.Body.Close()
-				r.Header.Set("Content-Type", "text/plain")
+				if r.URL.String() == "/api/shorten" {
+					r.Header.Set("Content-Type", "application/json")
+				} else {
+					r.Header.Set("Content-Type", "text/plain")
+				}
+
 			}
 		}
 
@@ -48,7 +54,7 @@ func gzipHandle(h http.Handler) http.HandlerFunc {
 				break
 			}
 
-			if i == len(r.Header.Values("Accept-Encoding")) - 1 {
+			if i == len(r.Header.Values("Accept-Encoding"))-1 {
 				h.ServeHTTP(w, r)
 				return
 			}
@@ -65,4 +71,5 @@ func gzipHandle(h http.Handler) http.HandlerFunc {
 
 		h.ServeHTTP(gzipWriter{ResponseWriter: w, Writer: gz}, r)
 	})
+	return WithLogging(gzipFunc, sugar)
 }

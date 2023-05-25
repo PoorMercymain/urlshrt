@@ -9,8 +9,8 @@ import (
 )
 
 type JSONDatabaseStr struct {
-	UUID int `json:"uuid"`
-	ShortURL string `json:"short_url"`
+	UUID        int    `json:"uuid"`
+	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 }
 
@@ -69,8 +69,6 @@ func (db *Database) saveStrings(urls []JSONDatabaseStr) error {
 		}
 		return nil
 	}()
-
-	fmt.Println(urls)
 
 	for _, str := range urls {
 		jsonByteSlice, err := json.Marshal(str)

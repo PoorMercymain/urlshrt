@@ -3,7 +3,7 @@ package config
 type Config struct {
 	HTTPAddr  AddrWithCheck
 	ShortAddr AddrWithCheck
-	JSONFile string
+	JSONFile  string
 }
 
 type AddrWithCheck struct {

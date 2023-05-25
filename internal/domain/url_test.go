@@ -22,7 +22,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	var err error
 	if body == "" {
 		req, err = http.NewRequest(method, ts.URL+path, nil)
-	} else if method == "POST"{
+	} else if method == "POST" {
 		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	} else if method == "POST with JSON" {
 		req, err = http.NewRequest("POST", ts.URL+path, strings.NewReader(body))
@@ -83,20 +83,20 @@ func router() chi.Router {
 	db := NewDB("txt", "testTxtDB.txt")
 
 	logger, err := zap.NewDevelopment()
-    if err != nil {
+	if err != nil {
 		fmt.Println(err)
-        return nil
-    }
-    defer logger.Sync()
+		return nil
+	}
+	defer logger.Sync()
 
 	sugar := *logger.Sugar()
 
 	postContext := NewContext(&urls, host, time.Now().Unix(), db, "", false)
 	getContext := NewContext(&urls, "", 0, db, "", false)
 
-	r.Post("/", WithLogging(url.GenerateShortURLHandler(*postContext), &sugar))
-	r.Get("/{short}", WithLogging(url.GetOriginalURLHandler(*getContext), &sugar))
-	r.Post("/api/shorten", WithLogging(url.GenerateShortURLFromJSONHandler(*postContext), &sugar))
+	r.Post("/", GzipHandle(url.GenerateShortURLHandler(*postContext), &sugar))
+	r.Get("/{short}", GzipHandle(url.GetOriginalURLHandler(*getContext), &sugar))
+	r.Post("/api/shorten", GzipHandle(url.GenerateShortURLFromJSONHandler(*postContext), &sugar))
 
 	return r
 }
