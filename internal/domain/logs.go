@@ -7,21 +7,21 @@ import (
 )
 
 var (
-    instance *zap.SugaredLogger
+	instance *zap.SugaredLogger
 )
 
 func InitLogger() error {
-    logger, err := zap.NewProduction()
-    if err != nil {
-        return err
-    }
+	logger, err := zap.NewProduction()
+	if err != nil {
+		return err
+	}
 
-    instance = logger.Sugar()
-    return nil
+	instance = logger.Sugar()
+	return nil
 }
 
 func GetLogger() *zap.SugaredLogger {
-    return instance
+	return instance
 }
 
 type (
