@@ -2,18 +2,17 @@ package domain
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path string) (*http.Response, string) {
@@ -75,28 +74,22 @@ func router() chi.Router {
 	r := chi.NewRouter()
 
 	var url URL
-	//urls := make([]URL, 0)
-	urls := []JSONDatabaseStr{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
+
+	urls := []URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
 
 	host := "http://localhost:8080/"
 
 	db := NewDB("txt", "testTxtDB.txt")
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer logger.Sync()
+	InitLogger()
 
-	sugar := *logger.Sugar()
+	defer GetLogger().Sync()
 
-	postContext := NewContext(&urls, host, time.Now().Unix(), db, "", false)
-	getContext := NewContext(&urls, "", 0, db, "", false)
+	data := NewData(&urls, host, time.Now().Unix(), db, "", false, new(sync.Mutex))
 
-	r.Post("/", GzipHandle(url.GenerateShortURLHandler(*postContext), &sugar))
-	r.Get("/{short}", GzipHandle(url.GetOriginalURLHandler(*getContext), &sugar))
-	r.Post("/api/shorten", GzipHandle(url.GenerateShortURLFromJSONHandler(*postContext), &sugar))
+	r.Post("/", GzipHandle(url.GenerateShortURLHandler(data)))
+	r.Get("/{short}", GzipHandle(url.GetOriginalURLHandler(data)))
+	r.Post("/api/shorten", GzipHandle(url.GenerateShortURLFromJSONHandler(data)))
 
 	return r
 }

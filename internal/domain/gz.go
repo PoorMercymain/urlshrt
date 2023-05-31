@@ -5,8 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"go.uber.org/zap"
 )
 
 type gzipWriter struct {
@@ -18,7 +16,7 @@ func (w gzipWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-func GzipHandle(h http.Handler, sugar *zap.SugaredLogger) http.HandlerFunc {
+func GzipHandle(h http.Handler) http.HandlerFunc {
 	gzipFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" && r.Header.Get("Content-Type") != "text/html" && r.Header.Get("Content-Type") != "application/x-gzip" {
 			h.ServeHTTP(w, r)
@@ -71,5 +69,5 @@ func GzipHandle(h http.Handler, sugar *zap.SugaredLogger) http.HandlerFunc {
 
 		h.ServeHTTP(gzipWriter{ResponseWriter: w, Writer: gz}, r)
 	})
-	return WithLogging(gzipFunc, sugar)
+	return WithLogging(gzipFunc)
 }

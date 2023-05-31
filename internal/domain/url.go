@@ -30,7 +30,7 @@ func (u *URL) String() string {
 	return fmt.Sprintf("%s %s", u.Original, u.Shortened)
 }
 
-func (u *URL) GenerateShortURLFromJSONHandler(context ctx) http.HandlerFunc {
+func (u *URL) GenerateShortURLFromJSONHandler(data *Data) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var orig OriginalURL
 
@@ -40,13 +40,15 @@ func (u *URL) GenerateShortURLFromJSONHandler(context ctx) http.HandlerFunc {
 		}
 		orig.IsSet = true
 
-		context.json = orig
+		data.Lock()
+		data.json = orig
+		data.Unlock()
 
-		u.GenerateShortURL(w, r, context)
+		u.GenerateShortURL(w, r, data)
 	}
 }
 
-func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, context ctx) {
+func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, data *Data) {
 	contentTypeOk := false
 	for _, val := range r.Header.Values("Content-Type") {
 		if val == "text/plain" {
@@ -56,71 +58,53 @@ func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, context c
 	}
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") || r.Header.Get("Content-Type") == "application/json" || r.ContentLength == 0 || contentTypeOk {
 		var originalURL string
-		if context.json.IsSet {
-			originalURL = context.json.URL
+		if data.json.IsSet {
+			originalURL = data.json.URL
 		} else {
 			scanner := bufio.NewScanner(r.Body)
 			scanner.Scan()
 			originalURL = scanner.Text()
 		}
 
-		shortenedURL, err := u.ShortenRawURL(originalURL, context.urls, context.randomSeed, context.db)
+		shortenedURL, err := u.ShortenRawURL(originalURL, data)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		if !context.json.IsSet {
+		if !data.json.IsSet {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusCreated)
-			if !strings.HasPrefix(context.address, "http://") {
-				context.address = "http://" + context.address
-			}
-			if !strings.HasSuffix(context.address, "/") {
-				context.address = context.address + "/"
-			}
-			w.Write([]byte(context.address + shortenedURL))
-			return
-		} else {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusCreated)
-			if !strings.HasPrefix(context.address, "http://") {
-				context.address = "http://" + context.address
-			}
-			if !strings.HasSuffix(context.address, "/") {
-				context.address = context.address + "/"
-			}
-			var shortenedJSONBytes []byte
-			buf := bytes.NewBuffer(shortenedJSONBytes)
-			shortened := ShortenedURL{Result: context.address + shortenedURL}
-			err = json.NewEncoder(buf).Encode(shortened)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			w.Write(buf.Bytes())
+			w.Write([]byte(data.address + shortenedURL))
 			return
 		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		var shortenedJSONBytes []byte
+		buf := bytes.NewBuffer(shortenedJSONBytes)
+		shortened := ShortenedURL{Result: data.address + shortenedURL}
+		err = json.NewEncoder(buf).Encode(shortened)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		w.Write(buf.Bytes())
+		return
 
 	}
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u *URL) GenerateShortURLHandler(context ctx) http.HandlerFunc {
+func (u *URL) GenerateShortURLHandler(data *Data) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GenerateShortURL(w, r, context)
+		u.GenerateShortURL(w, r, data)
 	}
 }
 
-func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, context ctx) {
+func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, data *Data) {
 	shortenedURL := chi.URLParam(r, "short")
 
-	savedUrls, err := context.db.getUrls()
-	if err != nil {
-		fmt.Println(err)
-		savedUrls = *context.urls
-	}
-
-	for _, url := range savedUrls {
+	for _, url := range *data.urls {
 		if url.ShortURL == shortenedURL {
 			w.Header().Set("Location", url.OriginalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
@@ -131,23 +115,18 @@ func (u *URL) GetOriginalURL(w http.ResponseWriter, r *http.Request, context ctx
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (u *URL) GetOriginalURLHandler(context ctx) http.HandlerFunc {
+func (u *URL) GetOriginalURLHandler(data *Data) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		u.GetOriginalURL(w, r, context)
+		u.GetOriginalURL(w, r, data)
 	}
 }
 
-func (u *URL) ShortenRawURL(rawURL string, urls *[]JSONDatabaseStr, randSeed int64, db *Database) (string, error) {
-	random := rand.New(rand.NewSource(randSeed))
+func (u *URL) ShortenRawURL(rawURL string, data *Data) (string, error) {
+	random := rand.New(rand.NewSource(data.randomSeed))
 
 	u.Original = rawURL
 
-	savedUrls, errDB := db.getUrls()
-	if errDB != nil {
-		savedUrls = *urls
-	}
-
-	for _, url := range savedUrls {
+	for _, url := range *data.urls {
 		if u.Original == url.OriginalURL {
 			return url.ShortURL, nil
 		}
@@ -159,7 +138,7 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]JSONDatabaseStr, randSeed int
 
 	shortenedURL = generateRandomString(shrtURLReqLen, random)
 
-	for _, url := range savedUrls {
+	for _, url := range *data.urls {
 		for shortenedURL == url.ShortURL {
 			shortenedURL = generateRandomString(shrtURLReqLen, random)
 		}
@@ -167,11 +146,13 @@ func (u *URL) ShortenRawURL(rawURL string, urls *[]JSONDatabaseStr, randSeed int
 
 	u.Shortened = shortenedURL
 
-	createdURL := JSONDatabaseStr{UUID: len(*urls), ShortURL: u.Shortened, OriginalURL: u.Original}
-	*urls = append(*urls, createdURL)
+	createdURL := URLStringJSON{UUID: len(*data.urls), ShortURL: u.Shortened, OriginalURL: u.Original}
+	data.Lock()
+	*data.urls = append(*data.urls, createdURL)
+	data.Unlock()
 
-	if db.location != "" {
-		db.saveStrings([]JSONDatabaseStr{createdURL})
+	if data.db.location != "" {
+		data.db.saveStrings([]URLStringJSON{createdURL})
 	}
 
 	return u.Shortened, nil

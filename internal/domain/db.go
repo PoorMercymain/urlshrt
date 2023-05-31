@@ -4,12 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 )
 
-type JSONDatabaseStr struct {
+type URLStringJSON struct {
 	UUID        int    `json:"uuid"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
@@ -24,10 +23,10 @@ func NewDB(dBType string, location string) *Database {
 	return &Database{dBType: dBType, location: location}
 }
 
-func (db *Database) getUrls() ([]JSONDatabaseStr, error) {
+func (db *Database) GetUrls() ([]URLStringJSON, error) {
 	f, err := os.Open(db.location)
 	if err != nil {
-		fmt.Println("get", err)
+		GetLogger().Infoln("get", err)
 		return nil, err
 	}
 
@@ -40,8 +39,8 @@ func (db *Database) getUrls() ([]JSONDatabaseStr, error) {
 
 	scanner := bufio.NewScanner(f)
 
-	jsonSlice := make([]JSONDatabaseStr, 0)
-	var jsonSliceElemBuffer JSONDatabaseStr
+	jsonSlice := make([]URLStringJSON, 0)
+	var jsonSliceElemBuffer URLStringJSON
 
 	for scanner.Scan() {
 		buf := bytes.NewBuffer([]byte(scanner.Text()))
@@ -57,16 +56,16 @@ func (db *Database) getUrls() ([]JSONDatabaseStr, error) {
 	return jsonSlice, nil
 }
 
-func (db *Database) saveStrings(urls []JSONDatabaseStr) error {
+func (db *Database) saveStrings(urls []URLStringJSON) error {
 	err := os.MkdirAll(filepath.Dir(db.location), 0600)
 	if err != nil {
-		fmt.Println("save mkdir", err)
+		GetLogger().Infoln("save mkdir", err)
 		return err
 	}
 
 	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		fmt.Println("save", err)
+		GetLogger().Infoln("save", err)
 		return err
 	}
 

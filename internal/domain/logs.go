@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+var (
+    instance *zap.SugaredLogger
+)
+
+func InitLogger() error {
+    logger, err := zap.NewProduction()
+    if err != nil {
+        return err
+    }
+
+    instance = logger.Sugar()
+    return nil
+}
+
+func GetLogger() *zap.SugaredLogger {
+    return instance
+}
+
 type (
 	responseData struct {
 		status int
@@ -36,7 +54,7 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-func WithLogging(h http.Handler, sugar *zap.SugaredLogger) http.HandlerFunc {
+func WithLogging(h http.Handler) http.HandlerFunc {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		logRespWriter := loggingResponseWriter{
 			ResponseWriter: w,
@@ -54,13 +72,13 @@ func WithLogging(h http.Handler, sugar *zap.SugaredLogger) http.HandlerFunc {
 
 		logRespWriter.requestData.timeSpent = time.Since(start)
 
-		sugar.Infoln(
+		GetLogger().Infoln(
 			"uri", logRespWriter.requestData.uri,
 			"method", logRespWriter.requestData.method,
 			"duration", logRespWriter.requestData.timeSpent,
 		)
 
-		sugar.Infoln(
+		GetLogger().Infoln(
 			"status", logRespWriter.responseData.status,
 			"size", logRespWriter.responseData.size,
 		)

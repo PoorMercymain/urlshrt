@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -24,15 +25,15 @@ func main() {
 
 	var buf *string
 
-	flag.Var(&conf.HTTPAddr, "a", "адрес http-сервера")
+	flag.Var(&conf.HTTPAddr, "a", "http server address")
 
-	flag.Var(&conf.ShortAddr, "b", "базовый адрес сокращенного URL")
+	flag.Var(&conf.ShortAddr, "b", "base address of the shortened URL")
 
-	buf = flag.String("f", "./tmp/short-url-db.json", "полное имя файла, куда сохраняются данные в формате JSON")
+	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
 	url := domain.URL{}
 
-	urls := make([]domain.JSONDatabaseStr, 1)
+	urls := make([]domain.URLStringJSON, 1)
 
 	r := chi.NewRouter()
 
@@ -59,7 +60,7 @@ func main() {
 	}
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
-		conf.ShortAddr = config.AddrWithCheck{Addr: "localhost:8080", WasSet: true}
+		conf.ShortAddr = config.AddrWithCheck{Addr: "http://localhost:8080/", WasSet: true}
 		conf.HTTPAddr = conf.ShortAddr
 	} else if !conf.HTTPAddr.WasSet {
 		conf.HTTPAddr = conf.ShortAddr
@@ -71,26 +72,34 @@ func main() {
 
 	db := domain.NewDB("json", conf.JSONFile)
 
-	logger, err := zap.NewDevelopment()
+	err := domain.InitLogger()
 	if err != nil {
-		fmt.Println(err)
-		return
+		fmt.Fprint(os.Stderr, err.Error())
 	}
-	defer logger.Sync()
 
-	sugar := *logger.Sugar()
+	defer domain.GetLogger().Sync()
 
-	postContext := domain.NewContext(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db, "", false)
-	getContext := domain.NewContext(&urls, "", 0, db, "", false)
+	urls, errDB := db.GetUrls()
+	if errDB != nil {
+		domain.GetLogger().Infoln(errDB)
+		urls = make([]domain.URLStringJSON, 1)
+	}
 
-	r.Post("/", domain.GzipHandle(url.GenerateShortURLHandler(*postContext), &sugar))
-	r.Get("/{short}", domain.GzipHandle(url.GetOriginalURLHandler(*getContext), &sugar))
-	r.Post("/api/shorten", domain.GzipHandle(url.GenerateShortURLFromJSONHandler(*postContext), &sugar))
+	mut := new(sync.Mutex)
 
-	fmt.Println(conf)
-	err = http.ListenAndServe(conf.HTTPAddr.Addr, r)
+	data := domain.NewData(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db, "", false, mut)
+	//getData := domain.NewData(&urls, "", 0, db, "", false)
+
+	r.Post("/", domain.GzipHandle(url.GenerateShortURLHandler(data)))
+	r.Get("/{short}", domain.GzipHandle(url.GetOriginalURLHandler(data)))
+	r.Post("/api/shorten", domain.GzipHandle(url.GenerateShortURLFromJSONHandler(data)))
+
+	domain.GetLogger().Infoln(conf)
+	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
+	addrToServe = strings.TrimSuffix(addrToServe, "/")
+	err = http.ListenAndServe(addrToServe, r)
 	if err != nil {
-		fmt.Println(err)
+		domain.GetLogger().Error(err)
 		return
 	}
 }
