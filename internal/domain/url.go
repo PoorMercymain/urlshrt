@@ -74,7 +74,7 @@ func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, data *Dat
 		if !data.json.IsSet {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(data.address + shortenedURL))
+			w.Write([]byte(data.address + "/" + shortenedURL))
 			return
 		}
 
@@ -82,7 +82,7 @@ func (u *URL) GenerateShortURL(w http.ResponseWriter, r *http.Request, data *Dat
 		w.WriteHeader(http.StatusCreated)
 		var shortenedJSONBytes []byte
 		buf := bytes.NewBuffer(shortenedJSONBytes)
-		shortened := ShortenedURL{Result: data.address + shortenedURL}
+		shortened := ShortenedURL{Result: data.address + "/" + shortenedURL}
 		err = json.NewEncoder(buf).Encode(shortened)
 		if err != nil {
 			fmt.Println(err)

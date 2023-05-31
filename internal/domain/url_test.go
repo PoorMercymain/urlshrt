@@ -77,7 +77,7 @@ func router() chi.Router {
 
 	urls := []URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
 
-	host := "http://localhost:8080/"
+	host := "http://localhost:8080"
 
 	db := NewDB("txt", "testTxtDB.txt")
 
