@@ -23,7 +23,6 @@ func NewURL(srv domain.URLService) *url {
 func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
 
-	//TODO: make separate func
 	orig, err := h.srv.ReadOriginal(r.Context(), shortenedURL)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -56,11 +55,10 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	scanner.Scan()
 	originalURL = scanner.Text()
 
-	//TODO: use util.shorten
 	//ctx := r.Context()
 	//ctx = context.WithValue(ctx, "rand_seed", )
 	shortenedURL := h.srv.CreateShortened(r.Context(), originalURL)
-	//TODO: take address from context
+
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
 		addr = addr + "/"
@@ -72,7 +70,6 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
-	//TODO: may be use just string
 	var orig OriginalURL
 
 	if len(r.Header.Values("Content-Type")) == 0 {
@@ -101,7 +98,7 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	var shortenedJSONBytes []byte
 	buf := bytes.NewBuffer(shortenedJSONBytes)
-	//TODO: take address from context
+
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
 		addr = addr + "/"

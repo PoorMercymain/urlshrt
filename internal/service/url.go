@@ -20,7 +20,6 @@ func NewURL(repo domain.URLRepository) *url {
 }
 
 func(s *url) ReadOriginal(ctx context.Context, shortened string) (string, error) {
-	//TODO: move func from handler
 	for _, url := range *state.GetCurrentURLsPtr().Urls {
 		if url.ShortURL == shortened {
 			return url.OriginalURL, nil

@@ -1,4 +1,4 @@
-package domain
+package test
 
 import (
 	"encoding/json"
