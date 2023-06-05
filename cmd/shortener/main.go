@@ -90,7 +90,7 @@ func main() {
 
 	//mut := new(sync.Mutex)
 
-	ur := repository.NewURL(*buf)
+	ur := repository.NewURL(conf.JSONFile)
 	us := service.NewURL(ur)
 	uh := handler.NewURL(us)
 
