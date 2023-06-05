@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"encoding/json"
@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/PoorMercymain/urlshrt/internal/handler"
 	"github.com/PoorMercymain/urlshrt/internal/middleware"
 	"github.com/PoorMercymain/urlshrt/internal/repository"
 	"github.com/PoorMercymain/urlshrt/internal/service"
@@ -90,7 +89,7 @@ func router() chi.Router {
 
 	ur := repository.NewURL("")
 	us := service.NewURL(ur)
-	uh := handler.NewURL(us)
+	uh := NewURL(us)
 
 	state.InitCurrentURLs(&urls)
 	state.InitShortAddress(host)
