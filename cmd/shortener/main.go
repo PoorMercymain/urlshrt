@@ -1,16 +1,19 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
-	"github.com/PoorMercymain/urlshrt/internal/domain"
+	"github.com/PoorMercymain/urlshrt/internal/handler"
+	"github.com/PoorMercymain/urlshrt/internal/middleware"
+	"github.com/PoorMercymain/urlshrt/internal/repository"
+	"github.com/PoorMercymain/urlshrt/internal/service"
+	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -31,13 +34,13 @@ func main() {
 
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
-	url := domain.URL{}
+	//url := domain.URL{}
 
-	urls := make([]domain.URLStringJSON, 1)
+	//urls := make([]domain.URLStringJSON, 1)
 
 	r := chi.NewRouter()
 
-	fmt.Println(len(os.Args))
+	//fmt.Println(len(os.Args))
 
 	if !httpSet || !shortSet || !jsonFileSet {
 		flag.Parse()
@@ -70,36 +73,50 @@ func main() {
 
 	fmt.Println(conf.JSONFile)
 
-	db := domain.NewDB("json", conf.JSONFile)
+	//db := domain.NewDB("json", conf.JSONFile)
 
-	err := domain.InitLogger()
+	err := middleware.InitLogger()
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
 	}
 
-	defer domain.GetLogger().Sync()
+	defer middleware.GetLogger().Sync()
 
-	urls, errDB := db.GetUrls()
+	/*urls, errDB := db.GetUrls()
 	if errDB != nil {
 		domain.GetLogger().Infoln(errDB)
 		urls = make([]domain.URLStringJSON, 1)
+	}*/
+
+	//mut := new(sync.Mutex)
+
+	ur := repository.NewURL(*buf)
+	us := service.NewURL(ur)
+	uh := handler.NewURL(us)
+
+	urls, err := ur.ReadAll(context.Background())
+	if err != nil {
+		middleware.GetLogger().Infoln("init", err)
+		urls = make([]state.URLStringJSON, 1)
 	}
 
-	mut := new(sync.Mutex)
+	state.InitCurrentURLs(&urls)
 
-	data := domain.NewData(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db, "", false, mut)
+	state.InitShortAddress(conf.ShortAddr.Addr)
+
+	//data := domain.NewData(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db, "", false, mut)
 	//getData := domain.NewData(&urls, "", 0, db, "", false)
 
-	r.Post("/", domain.GzipHandle(url.GenerateShortURLHandler(data)))
-	r.Get("/{short}", domain.GzipHandle(url.GetOriginalURLHandler(data)))
-	r.Post("/api/shorten", domain.GzipHandle(url.GenerateShortURLFromJSONHandler(data)))
+	r.Post("/", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortened)))
+	r.Get("/{short}", middleware.GzipHandle(http.HandlerFunc(uh.ReadOriginal)))
+	r.Post("/api/shorten", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortenedFromJSON)))
 
-	domain.GetLogger().Infoln(conf)
+	middleware.GetLogger().Infoln(conf)
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
 	err = http.ListenAndServe(addrToServe, r)
 	if err != nil {
-		domain.GetLogger().Error(err)
+		middleware.GetLogger().Error(err)
 		return
 	}
 }

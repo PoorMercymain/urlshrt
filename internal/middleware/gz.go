@@ -1,4 +1,4 @@
-package domain
+package middleware
 
 import (
 	"compress/gzip"

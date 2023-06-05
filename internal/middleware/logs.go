@@ -1,4 +1,4 @@
-package domain
+package middleware
 
 import (
 	"go.uber.org/zap"

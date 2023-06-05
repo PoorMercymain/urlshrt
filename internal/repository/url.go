@@ -1,32 +1,29 @@
-package domain
+package repository
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/PoorMercymain/urlshrt/internal/middleware"
+	"github.com/PoorMercymain/urlshrt/internal/state"
 )
 
-type URLStringJSON struct {
-	UUID        int    `json:"uuid"`
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-}
-
-type Database struct {
-	dBType   string
+type url struct {
 	location string
 }
 
-func NewDB(dBType string, location string) *Database {
-	return &Database{dBType: dBType, location: location}
+func NewURL(location string) *url {
+	return &url{location: location}
 }
 
-func (db *Database) GetUrls() ([]URLStringJSON, error) {
-	f, err := os.Open(db.location)
+func(r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
+	f, err := os.Open(r.location)
 	if err != nil {
-		GetLogger().Infoln("get", err)
+		middleware.GetLogger().Infoln("get", err)
 		return nil, err
 	}
 
@@ -39,8 +36,8 @@ func (db *Database) GetUrls() ([]URLStringJSON, error) {
 
 	scanner := bufio.NewScanner(f)
 
-	jsonSlice := make([]URLStringJSON, 0)
-	var jsonSliceElemBuffer URLStringJSON
+	jsonSlice := make([]state.URLStringJSON, 0)
+	var jsonSliceElemBuffer state.URLStringJSON
 
 	for scanner.Scan() {
 		buf := bytes.NewBuffer([]byte(scanner.Text()))
@@ -56,16 +53,19 @@ func (db *Database) GetUrls() ([]URLStringJSON, error) {
 	return jsonSlice, nil
 }
 
-func (db *Database) saveStrings(urls []URLStringJSON) error {
-	err := os.MkdirAll(filepath.Dir(db.location), 0600)
+func(r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
+	if r.location == "" {
+		return nil
+	}
+	err := os.MkdirAll(filepath.Dir(r.location), 0600)
 	if err != nil {
-		GetLogger().Infoln("save mkdir", err)
+		middleware.GetLogger().Infoln("save mkdir", err)
 		return err
 	}
 
-	f, err := os.OpenFile(db.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		GetLogger().Infoln("save", err)
+		middleware.GetLogger().Infoln("save", err)
 		return err
 	}
 

@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
+	"github.com/PoorMercymain/urlshrt/internal/handler"
+	"github.com/PoorMercymain/urlshrt/internal/middleware"
+	"github.com/PoorMercymain/urlshrt/internal/repository"
+	"github.com/PoorMercymain/urlshrt/internal/service"
+	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +59,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	}
 
 	var respBody []byte
-	var short ShortenedURL
+	var short = struct{Result string `json:"result"`}{}
 
 	if method != "POST with JSON" {
 		respBody, err = io.ReadAll(resp.Body)
@@ -73,23 +76,30 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 func router() chi.Router {
 	r := chi.NewRouter()
 
-	var url URL
+	//var url URL
 
-	urls := []URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
+	urls := []state.URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
 
 	host := "http://localhost:8080"
 
-	db := NewDB("txt", "testTxtDB.txt")
+	//db := NewDB("txt", "testTxtDB.txt")
 
-	InitLogger()
+	middleware.InitLogger()
 
-	defer GetLogger().Sync()
+	defer middleware.GetLogger().Sync()
 
-	data := NewData(&urls, host, time.Now().Unix(), db, "", false, new(sync.Mutex))
+	ur := repository.NewURL("")
+	us := service.NewURL(ur)
+	uh := handler.NewURL(us)
 
-	r.Post("/", GzipHandle(url.GenerateShortURLHandler(data)))
-	r.Get("/{short}", GzipHandle(url.GetOriginalURLHandler(data)))
-	r.Post("/api/shorten", GzipHandle(url.GenerateShortURLFromJSONHandler(data)))
+	state.InitCurrentURLs(&urls)
+	state.InitShortAddress(host)
+
+	//data := NewData(&urls, host, time.Now().Unix(), db, "", false, new(sync.Mutex))
+
+	r.Post("/", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortened)))
+	r.Get("/{short}", middleware.GzipHandle(http.HandlerFunc(uh.ReadOriginal)))
+	r.Post("/api/shorten", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortenedFromJSON)))
 
 	return r
 }
