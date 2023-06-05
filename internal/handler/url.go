@@ -32,7 +32,6 @@ func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", orig)
 	w.WriteHeader(http.StatusTemporaryRedirect)
-	return
 }
 
 func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +69,6 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(addr + shortenedURL))
-	return
 }
 
 func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
@@ -120,5 +118,4 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(buf.Bytes())
-	return
 }
