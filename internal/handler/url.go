@@ -55,8 +55,6 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	scanner.Scan()
 	originalURL = scanner.Text()
 
-	//ctx := r.Context()
-	//ctx = context.WithValue(ctx, "rand_seed", )
 	shortenedURL := h.srv.CreateShortened(r.Context(), originalURL)
 
 	addr := state.GetBaseShortAddress()

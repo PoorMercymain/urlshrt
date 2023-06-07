@@ -29,10 +29,8 @@ func(s *url) ReadOriginal(ctx context.Context, shortened string) (string, error)
 }
 
 func(s *url) CreateShortened(ctx context.Context, original string) string {
-	//TODO: seed should be an argument
+	//TODO: seed should be an argument or be able to set from main in other way
 	random := rand.New(rand.NewSource(time.Now().Unix()))
-
-	//u.Original = rawURL
 
 	for _, url := range *state.GetCurrentURLsPtr().Urls {
 		if original == url.OriginalURL {
@@ -51,8 +49,6 @@ func(s *url) CreateShortened(ctx context.Context, original string) string {
 			shortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
 		}
 	}
-
-	//u.Shortened = shortenedURL
 
 	createdURLStruct := state.URLStringJSON{UUID: len(*state.GetCurrentURLsPtr().Urls), ShortURL: shortenedURL, OriginalURL: original}
 	state.GetCurrentURLsPtr().Lock()

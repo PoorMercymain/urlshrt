@@ -34,13 +34,7 @@ func main() {
 
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
-	//url := domain.URL{}
-
-	//urls := make([]domain.URLStringJSON, 1)
-
 	r := chi.NewRouter()
-
-	//fmt.Println(len(os.Args))
 
 	if !httpSet || !shortSet || !jsonFileSet {
 		flag.Parse()
@@ -73,22 +67,12 @@ func main() {
 
 	fmt.Println(conf.JSONFile)
 
-	//db := domain.NewDB("json", conf.JSONFile)
-
 	err := middleware.InitLogger()
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
 	}
 
 	defer middleware.GetLogger().Sync()
-
-	/*urls, errDB := db.GetUrls()
-	if errDB != nil {
-		domain.GetLogger().Infoln(errDB)
-		urls = make([]domain.URLStringJSON, 1)
-	}*/
-
-	//mut := new(sync.Mutex)
 
 	ur := repository.NewURL(conf.JSONFile)
 	us := service.NewURL(ur)
@@ -103,9 +87,6 @@ func main() {
 	state.InitCurrentURLs(&urls)
 
 	state.InitShortAddress(conf.ShortAddr.Addr)
-
-	//data := domain.NewData(&urls, conf.ShortAddr.Addr, time.Now().Unix(), db, "", false, mut)
-	//getData := domain.NewData(&urls, "", 0, db, "", false)
 
 	r.Post("/", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortened)))
 	r.Get("/{short}", middleware.GzipHandle(http.HandlerFunc(uh.ReadOriginal)))

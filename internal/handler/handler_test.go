@@ -75,13 +75,9 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 func router() chi.Router {
 	r := chi.NewRouter()
 
-	//var url URL
-
 	urls := []state.URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
 
 	host := "http://localhost:8080"
-
-	//db := NewDB("txt", "testTxtDB.txt")
 
 	middleware.InitLogger()
 
@@ -93,8 +89,6 @@ func router() chi.Router {
 
 	state.InitCurrentURLs(&urls)
 	state.InitShortAddress(host)
-
-	//data := NewData(&urls, host, time.Now().Unix(), db, "", false, new(sync.Mutex))
 
 	r.Post("/", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortened)))
 	r.Get("/{short}", middleware.GzipHandle(http.HandlerFunc(uh.ReadOriginal)))
