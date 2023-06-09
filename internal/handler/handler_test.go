@@ -12,6 +12,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/repository"
 	"github.com/PoorMercymain/urlshrt/internal/service"
 	"github.com/PoorMercymain/urlshrt/internal/state"
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,9 +80,9 @@ func router() chi.Router {
 
 	host := "http://localhost:8080"
 
-	middleware.InitLogger()
+	util.InitLogger()
 
-	defer middleware.GetLogger().Sync()
+	defer util.GetLogger().Sync()
 
 	ur := repository.NewURL("")
 	us := service.NewURL(ur)

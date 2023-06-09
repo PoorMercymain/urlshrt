@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
-	"github.com/PoorMercymain/urlshrt/internal/middleware"
 	"github.com/PoorMercymain/urlshrt/internal/state"
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -109,7 +109,7 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	err := json.NewEncoder(buf).Encode(shortenedResponse)
 	if err != nil {
-		middleware.GetLogger().Errorln(err)
+		util.GetLogger().Errorln(err)
 		return
 	}
 	w.Write(buf.Bytes())
