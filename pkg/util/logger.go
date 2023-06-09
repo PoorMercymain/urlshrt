@@ -2,9 +2,7 @@ package util
 
 import "go.uber.org/zap"
 
-var (
-	instance *zap.SugaredLogger
-)
+var instance *zap.SugaredLogger
 
 func InitLogger() error {
 	logger, err := zap.NewProduction()
