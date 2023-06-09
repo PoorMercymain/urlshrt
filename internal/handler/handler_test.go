@@ -93,11 +93,15 @@ func router() chi.Router {
 	state.InitCurrentURLs(&urls)
 	state.InitShortAddress(host)
 
-	r.Post("/", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortened)))
-	r.Get("/{short}", middleware.GzipHandle(http.HandlerFunc(uh.ReadOriginal)))
-	r.Post("/api/shorten", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortenedFromJSON)))
+	r.Post("/", WrapHandler(uh.CreateShortened))
+	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
+	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
 
 	return r
+}
+
+func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
+	return middleware.GzipHandle(middleware.WithLogging(h))
 }
 
 func TestRouter(t *testing.T) {
