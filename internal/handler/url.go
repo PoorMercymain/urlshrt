@@ -40,7 +40,7 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
-		if contentType == "text/plain" || contentType == "text/plain; charset=utf-8"{
+		if contentType == "text/plain" || contentType == "text/plain; charset=utf-8" {
 			break
 		}
 		if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
@@ -55,7 +55,11 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	scanner.Scan()
 	originalURL = scanner.Text()
 
-	shortenedURL := h.srv.CreateShortened(r.Context(), originalURL)
+	shortenedURL, err := h.srv.CreateShortened(r.Context(), originalURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
@@ -90,7 +94,11 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortened := h.srv.CreateShortened(r.Context(), orig.URL)
+	shortened, err := h.srv.CreateShortened(r.Context(), orig.URL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -102,12 +110,12 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		addr = addr + "/"
 	}
 
-	shortenedResponse := struct{
-			Result string `json:"result"`
-		}{
-			Result: addr + shortened,
-		}
-	err := json.NewEncoder(buf).Encode(shortenedResponse)
+	shortenedResponse := struct {
+		Result string `json:"result"`
+	}{
+		Result: addr + shortened,
+	}
+	err = json.NewEncoder(buf).Encode(shortenedResponse)
 	if err != nil {
 		util.GetLogger().Errorln(err)
 		return

@@ -69,5 +69,5 @@ func GzipHandle(h http.Handler) http.HandlerFunc {
 
 		h.ServeHTTP(gzipWriter{ResponseWriter: w, Writer: gz}, r)
 	})
-	return WithLogging(gzipFunc)
+	return gzipFunc
 }

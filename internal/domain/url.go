@@ -8,7 +8,7 @@ import (
 
 type URLService interface {
 	ReadOriginal(ctx context.Context, shortened string) (string, error)
-	CreateShortened(ctx context.Context, original string) string
+	CreateShortened(ctx context.Context, original string) (string, error)
 }
 
 type URLRepository interface {

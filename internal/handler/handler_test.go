@@ -59,7 +59,9 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	}
 
 	var respBody []byte
-	var short = struct{Result string `json:"result"`}{}
+	var short = struct {
+		Result string `json:"result"`
+	}{}
 
 	if method != "POST with JSON" {
 		respBody, err = io.ReadAll(resp.Body)

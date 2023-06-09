@@ -1,28 +1,11 @@
 package middleware
 
 import (
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
-
-var (
-	instance *zap.SugaredLogger
-)
-
-func InitLogger() error {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		return err
-	}
-
-	instance = logger.Sugar()
-	return nil
-}
-
-func GetLogger() *zap.SugaredLogger {
-	return instance
-}
 
 type (
 	responseData struct {
@@ -72,13 +55,13 @@ func WithLogging(h http.Handler) http.HandlerFunc {
 
 		logRespWriter.requestData.timeSpent = time.Since(start)
 
-		GetLogger().Infoln(
+		util.GetLogger().Infoln(
 			"uri", logRespWriter.requestData.uri,
 			"method", logRespWriter.requestData.method,
 			"duration", logRespWriter.requestData.timeSpent,
 		)
 
-		GetLogger().Infoln(
+		util.GetLogger().Infoln(
 			"status", logRespWriter.responseData.status,
 			"size", logRespWriter.responseData.size,
 		)

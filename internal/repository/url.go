@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/PoorMercymain/urlshrt/internal/middleware"
 	"github.com/PoorMercymain/urlshrt/internal/state"
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
 type url struct {
@@ -20,10 +20,10 @@ func NewURL(location string) *url {
 	return &url{location: location}
 }
 
-func(r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
+func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	f, err := os.Open(r.location)
 	if err != nil {
-		middleware.GetLogger().Infoln("get", err)
+		util.GetLogger().Infoln("get", err)
 		return nil, err
 	}
 
@@ -53,19 +53,19 @@ func(r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	return jsonSlice, nil
 }
 
-func(r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
+func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
 	if r.location == "" {
 		return nil
 	}
 	err := os.MkdirAll(filepath.Dir(r.location), 0600)
 	if err != nil {
-		middleware.GetLogger().Infoln("save mkdir", err)
+		util.GetLogger().Infoln("save mkdir", err)
 		return err
 	}
 
 	f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		middleware.GetLogger().Infoln("save", err)
+		util.GetLogger().Infoln("save", err)
 		return err
 	}
 

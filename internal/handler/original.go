@@ -1,5 +1,5 @@
 package handler
 
 type OriginalURL struct {
-	URL   string `json:"url"`
+	URL string `json:"url"`
 }

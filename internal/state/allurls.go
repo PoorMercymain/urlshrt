@@ -1,6 +1,9 @@
 package state
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 type currentUrls struct {
 	Urls *[]URLStringJSON
@@ -15,6 +18,10 @@ func InitCurrentURLs(startURLs *[]URLStringJSON) {
 	urls = &currentUrls{Urls: startURLs, Mutex: new(sync.Mutex)}
 }
 
-func GetCurrentURLsPtr() *currentUrls {
-	return urls
+func GetCurrentURLsPtr() (*currentUrls, error) {
+	if urls != nil {
+		return urls, nil
+	} else {
+		return nil, errors.New("curtrent urls should be initialized")
+	}
 }

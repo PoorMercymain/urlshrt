@@ -1,8 +1,6 @@
 package state
 
-var(
-	baseShortAddress string
-)
+var baseShortAddress string
 
 func InitShortAddress(address string) {
 	baseShortAddress = address

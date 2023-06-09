@@ -14,8 +14,35 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/repository"
 	"github.com/PoorMercymain/urlshrt/internal/service"
 	"github.com/PoorMercymain/urlshrt/internal/state"
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/go-chi/chi/v5"
 )
+
+func router(pathToRepo string) chi.Router {
+	ur := repository.NewURL(pathToRepo)
+	us := service.NewURL(ur)
+	uh := handler.NewURL(us)
+
+	urls, err := ur.ReadAll(context.Background())
+	if err != nil {
+		util.GetLogger().Infoln("init", err)
+		urls = make([]state.URLStringJSON, 1)
+	}
+
+	state.InitCurrentURLs(&urls)
+
+	r := chi.NewRouter()
+
+	r.Post("/", WrapHandler(uh.CreateShortened))
+	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
+	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
+
+	return r
+}
+
+func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
+	return middleware.GzipHandle(middleware.WithLogging(h))
+}
 
 func main() {
 	var conf config.Config
@@ -33,8 +60,6 @@ func main() {
 	flag.Var(&conf.ShortAddr, "b", "base address of the shortened URL")
 
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
-
-	r := chi.NewRouter()
 
 	if !httpSet || !shortSet || !jsonFileSet {
 		flag.Parse()
@@ -67,37 +92,23 @@ func main() {
 
 	fmt.Println(conf.JSONFile)
 
-	err := middleware.InitLogger()
+	err := util.InitLogger()
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
 	}
 
-	defer middleware.GetLogger().Sync()
-
-	ur := repository.NewURL(conf.JSONFile)
-	us := service.NewURL(ur)
-	uh := handler.NewURL(us)
-
-	urls, err := ur.ReadAll(context.Background())
-	if err != nil {
-		middleware.GetLogger().Infoln("init", err)
-		urls = make([]state.URLStringJSON, 1)
-	}
-
-	state.InitCurrentURLs(&urls)
+	defer util.GetLogger().Sync()
 
 	state.InitShortAddress(conf.ShortAddr.Addr)
 
-	r.Post("/", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortened)))
-	r.Get("/{short}", middleware.GzipHandle(http.HandlerFunc(uh.ReadOriginal)))
-	r.Post("/api/shorten", middleware.GzipHandle(http.HandlerFunc(uh.CreateShortenedFromJSON)))
+	r := router(conf.JSONFile)
 
-	middleware.GetLogger().Infoln(conf)
+	util.GetLogger().Infoln(conf)
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
 	err = http.ListenAndServe(addrToServe, r)
 	if err != nil {
-		middleware.GetLogger().Error(err)
+		util.GetLogger().Error(err)
 		return
 	}
 }

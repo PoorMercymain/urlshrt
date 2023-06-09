@@ -19,8 +19,13 @@ func NewURL(repo domain.URLRepository) *url {
 	return &url{repo: repo}
 }
 
-func(s *url) ReadOriginal(ctx context.Context, shortened string) (string, error) {
-	for _, url := range *state.GetCurrentURLsPtr().Urls {
+func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error) {
+	curURLsPtr, err := state.GetCurrentURLsPtr()
+	if err != nil {
+		return "", err
+	}
+
+	for _, url := range *curURLsPtr.Urls {
 		if url.ShortURL == shortened {
 			return url.OriginalURL, nil
 		}
@@ -28,35 +33,44 @@ func(s *url) ReadOriginal(ctx context.Context, shortened string) (string, error)
 	return "", errors.New("no such value")
 }
 
-func(s *url) CreateShortened(ctx context.Context, original string) string {
-	//TODO: seed should be an argument or be able to set from main in other way
-	random := rand.New(rand.NewSource(time.Now().Unix()))
+func (s *url) CreateShortened(ctx context.Context, original string) (string, error) {
+	var random *rand.Rand
+	if rSeed := ctx.Value("seed"); rSeed != nil {
+		random = rand.New(rand.NewSource(ctx.Value("seed").(int64)))
+	} else {
+		util.GetLogger().Infoln("seed not found in context, default value used")
+		random = rand.New(rand.NewSource(time.Now().Unix()))
+	}
 
-	for _, url := range *state.GetCurrentURLsPtr().Urls {
+	curURLsPtr, err := state.GetCurrentURLsPtr()
+	if err != nil {
+		return "", err
+	}
+
+	for _, url := range *curURLsPtr.Urls {
 		if original == url.OriginalURL {
-			return url.ShortURL
+			return url.ShortURL, nil
 		}
 	}
 
 	var shortenedURL string
 
-	shrtURLReqLen := 7
+	const shrtURLReqLen = 7
 
 	shortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
 
-	for _, url := range *state.GetCurrentURLsPtr().Urls {
+	for _, url := range *curURLsPtr.Urls {
 		for shortenedURL == url.ShortURL {
 			shortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
 		}
 	}
 
-	createdURLStruct := state.URLStringJSON{UUID: len(*state.GetCurrentURLsPtr().Urls), ShortURL: shortenedURL, OriginalURL: original}
-	state.GetCurrentURLsPtr().Lock()
-	*state.GetCurrentURLsPtr().Urls = append(*state.GetCurrentURLsPtr().Urls, createdURLStruct)
-	state.GetCurrentURLsPtr().Unlock()
-
+	createdURLStruct := state.URLStringJSON{UUID: len(*curURLsPtr.Urls), ShortURL: shortenedURL, OriginalURL: original}
+	curURLsPtr.Lock()
+	*curURLsPtr.Urls = append(*curURLsPtr.Urls, createdURLStruct)
+	curURLsPtr.Unlock()
 
 	s.repo.Create(ctx, []state.URLStringJSON{createdURLStruct})
 
-	return shortenedURL
+	return shortenedURL, nil
 }
