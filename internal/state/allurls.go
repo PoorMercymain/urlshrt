@@ -10,9 +10,7 @@ type currentUrls struct {
 	*sync.Mutex
 }
 
-var (
-	urls *currentUrls
-)
+var urls *currentUrls
 
 func InitCurrentURLs(startURLs *[]URLStringJSON) {
 	urls = &currentUrls{Urls: startURLs, Mutex: new(sync.Mutex)}
