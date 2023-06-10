@@ -36,6 +36,7 @@ func router(pathToRepo string) chi.Router {
 	r.Post("/", WrapHandler(uh.CreateShortened))
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
+	r.Get("/ping", WrapHandler(uh.PingPg))
 
 	return r
 }
@@ -50,6 +51,7 @@ func main() {
 	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
 	shortEnv, shortSet := os.LookupEnv("BASE_URL")
 	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
+	dsnEnv, dsnSet := os.LookupEnv("DATABASE_DSN")
 
 	fmt.Println("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
 
@@ -59,15 +61,18 @@ func main() {
 
 	flag.Var(&conf.ShortAddr, "b", "base address of the shortened URL")
 
+	dsnBuf := flag.String("d", "", "string to connect to database")
+
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
-	if !httpSet || !shortSet || !jsonFileSet {
+	if !httpSet || !shortSet || !jsonFileSet || !dsnSet {
 		flag.Parse()
 	}
 
 	fmt.Println(len(os.Args))
 
 	conf.JSONFile = *buf
+	conf.DSN = *dsnBuf
 
 	if httpSet {
 		conf.HTTPAddr = config.AddrWithCheck{Addr: httpEnv, WasSet: true}
@@ -81,6 +86,20 @@ func main() {
 		conf.JSONFile = jsonFileEnv
 	}
 
+	if dsnSet {
+		conf.DSN = dsnEnv
+	}
+
+	err := state.ConnectToPG(conf.DSN)
+	if err != nil {
+		fmt.Println(err)
+	}
+	pgPtr, err := state.GetPgPtr()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer pgPtr.Close()
+
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: "http://localhost:8080/", WasSet: true}
 		conf.HTTPAddr = conf.ShortAddr
@@ -92,12 +111,14 @@ func main() {
 
 	fmt.Println(conf.JSONFile)
 
-	err := util.InitLogger()
+	err = util.InitLogger()
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
 	}
 
 	defer util.GetLogger().Sync()
+
+	util.GetLogger().Infoln("dsn", conf.DSN)
 
 	state.InitShortAddress(conf.ShortAddr.Addr)
 

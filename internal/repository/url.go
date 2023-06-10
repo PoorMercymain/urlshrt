@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
@@ -18,6 +19,17 @@ type url struct {
 
 func NewURL(location string) *url {
 	return &url{location: location}
+}
+
+func (r *url) PingPg(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+    defer cancel()
+	pg, err := state.GetPgPtr()
+	if err != nil {
+		return err
+	}
+    err = pg.PingContext(ctx)
+	return err
 }
 
 func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {

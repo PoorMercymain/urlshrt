@@ -20,6 +20,15 @@ func NewURL(srv domain.URLService) *url {
 	return &url{srv: srv}
 }
 
+func (h *url) PingPg(w http.ResponseWriter, r *http.Request) {
+	err := h.srv.PingPg(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
 
