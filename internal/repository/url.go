@@ -36,8 +36,9 @@ func (r *url) PingPg(ctx context.Context) error {
 func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
 	var err error
-	if db, err = state.GetPgPtr(); err != nil {
+	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
 		f, err := os.Open(r.location)
+		util.GetLogger().Infoln("got")
 		if err != nil {
 			util.GetLogger().Infoln("get", err)
 			return nil, err
@@ -89,7 +90,7 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
 	var db *sql.DB
 	var err error
-	if db, err = state.GetPgPtr(); err != nil {
+	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
 		if r.location == "" {
 			return nil
 		}
