@@ -162,6 +162,7 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 	util.GetLogger().Infoln("handler", orig)
 	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), &orig)
 	if err != nil {
+		util.GetLogger().Infoln(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
