@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -33,70 +34,98 @@ func (r *url) PingPg(ctx context.Context) error {
 }
 
 func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
-	f, err := os.Open(r.location)
-	if err != nil {
-		util.GetLogger().Infoln("get", err)
-		return nil, err
-	}
-
-	defer func() error {
-		if err := f.Close(); err != nil {
-			return err
-		}
-		return nil
-	}()
-
-	scanner := bufio.NewScanner(f)
-
-	jsonSlice := make([]state.URLStringJSON, 0)
-	var jsonSliceElemBuffer state.URLStringJSON
-
-	for scanner.Scan() {
-		buf := bytes.NewBuffer([]byte(scanner.Text()))
-
-		err := json.Unmarshal(buf.Bytes(), &jsonSliceElemBuffer)
+	var db *sql.DB
+	var err error
+	if db, err = state.GetPgPtr(); err != nil {
+		f, err := os.Open(r.location)
 		if err != nil {
+			util.GetLogger().Infoln("get", err)
 			return nil, err
 		}
 
-		jsonSlice = append(jsonSlice, jsonSliceElemBuffer)
-	}
+		defer func() error {
+			if err := f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}()
 
-	return jsonSlice, nil
+		scanner := bufio.NewScanner(f)
+
+		jsonSlice := make([]state.URLStringJSON, 0)
+		var jsonSliceElemBuffer state.URLStringJSON
+
+		for scanner.Scan() {
+			buf := bytes.NewBuffer([]byte(scanner.Text()))
+
+			err := json.Unmarshal(buf.Bytes(), &jsonSliceElemBuffer)
+			if err != nil {
+				return nil, err
+			}
+
+			jsonSlice = append(jsonSlice, jsonSliceElemBuffer)
+		}
+
+		return jsonSlice, nil
+	}
+	rows, err := db.QueryContext(ctx, "SELECT * FROM urlshrt")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	urlsFromPg := make([]state.URLStringJSON, 0)
+	for rows.Next() {
+		var u state.URLStringJSON
+
+		err = rows.Scan(&u.UUID, &u.ShortURL, &u.OriginalURL)
+		if err != nil {
+			return nil, err
+		}
+		urlsFromPg = append(urlsFromPg, u)
+	}
+	return urlsFromPg, nil
 }
 
 func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
-	if r.location == "" {
-		return nil
-	}
-	err := os.MkdirAll(filepath.Dir(r.location), 0600)
-	if err != nil {
-		util.GetLogger().Infoln("save mkdir", err)
-		return err
-	}
-
-	f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		util.GetLogger().Infoln("save", err)
-		return err
-	}
-
-	defer func() error {
-		if err := f.Close(); err != nil {
-			return err
+	var db *sql.DB
+	var err error
+	if db, err = state.GetPgPtr(); err != nil {
+		if r.location == "" {
+			return nil
 		}
-		return nil
-	}()
-
-	for _, str := range urls {
-		jsonByteSlice, err := json.Marshal(str)
+		err := os.MkdirAll(filepath.Dir(r.location), 0600)
 		if err != nil {
+			util.GetLogger().Infoln("save mkdir", err)
 			return err
 		}
-		buf := bytes.NewBuffer(jsonByteSlice)
-		buf.WriteByte('\n')
-		f.WriteString(buf.String())
-	}
 
-	return nil
+		f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			util.GetLogger().Infoln("save", err)
+			return err
+		}
+
+		defer func() error {
+			if err := f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}()
+
+		for _, str := range urls {
+			jsonByteSlice, err := json.Marshal(str)
+			if err != nil {
+				return err
+			}
+			buf := bytes.NewBuffer(jsonByteSlice)
+			buf.WriteByte('\n')
+			f.WriteString(buf.String())
+		}
+
+		return nil
+	}
+	for _, url := range urls {
+		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)", url.UUID, url.ShortURL, url.OriginalURL)
+	}
+	return err
 }

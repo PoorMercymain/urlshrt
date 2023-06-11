@@ -12,6 +12,10 @@ var pg *sql.DB
 func ConnectToPG(DSN string) error {
 	var err error
 	pg, err = sql.Open("pgx", DSN)
+	if err != nil {
+		return err
+	}
+	_, err = pg.Exec("CREATE TABLE IF NOT EXISTS urlshrt(uuid INTEGER PRIMARY KEY, short text, original text)")
 	return err
 }
 
