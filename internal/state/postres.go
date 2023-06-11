@@ -16,7 +16,7 @@ func ConnectToPG(DSN string) error {
 	if err != nil {
 		return err
 	}
-	_, err = pg.Exec("CREATE TABLE IF NOT EXISTS urlshrt(uuid INTEGER PRIMARY KEY, short text, original text)")
+	_, err = pg.Exec("CREATE TABLE IF NOT EXISTS urlshrt(uuid INTEGER, short text, original text)")
 	dsn = DSN
 	return err
 }
