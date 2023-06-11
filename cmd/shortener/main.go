@@ -37,6 +37,7 @@ func router(pathToRepo string) chi.Router {
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
 	r.Get("/ping", WrapHandler(uh.PingPg))
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
 
 	return r
 }

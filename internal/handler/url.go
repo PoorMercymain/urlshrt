@@ -131,3 +131,60 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(buf.Bytes())
 }
+
+func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
+	orig := make([]domain.BatchElement, 0)
+
+	if len(r.Header.Values("Content-Type")) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
+		if contentType == "application/json" {
+			break
+		}
+		if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(orig) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	util.GetLogger().Infoln("handler", orig)
+	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), &orig)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	util.GetLogger().Infoln("still handler", shortened)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	var shortenedJSONBytes []byte
+	buf := bytes.NewBuffer(shortenedJSONBytes)
+
+	addr := state.GetBaseShortAddress()
+	if addr[len(addr)-1] != '/' {
+		addr = addr + "/"
+	}
+
+	for i, shrt := range shortened {
+		shortened[i].ShortenedURL = addr + shrt.ShortenedURL
+	}
+
+	err = json.NewEncoder(buf).Encode(shortened)
+	if err != nil {
+		util.GetLogger().Errorln(err)
+		return
+	}
+	w.Write(buf.Bytes())
+}

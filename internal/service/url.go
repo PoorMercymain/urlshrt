@@ -24,6 +24,68 @@ func (s *url) PingPg(ctx context.Context) error {
 	return err
 }
 
+func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.BatchElement) ([]domain.BatchElementResult, error) {
+	curURLsPtr, err := state.GetCurrentURLsPtr()
+	if err != nil {
+		return nil, err
+	}
+
+	var random *rand.Rand
+	if rSeed := ctx.Value("seed"); rSeed != nil {
+		random = rand.New(rand.NewSource(ctx.Value("seed").(int64)))
+	} else {
+		util.GetLogger().Infoln("seed not found in context, default value used")
+		random = rand.New(rand.NewSource(time.Now().Unix()))
+	}
+
+	const shrtURLReqLen = 7
+
+	notYetWritten := make([]state.URLStringJSON, 0)
+
+	//TODO: use map
+	var counter int
+	util.GetLogger().Infoln("its them", *curURLsPtr.Urls)
+	for j, batchURL := range *batch {
+		for i, curURL := range *curURLsPtr.Urls {
+			if curURL.OriginalURL == batchURL.OriginalURL {
+				util.GetLogger().Infoln("why r u here", curURL.ShortURL)
+				(*batch)[j].ShortenedURL = curURL.ShortURL
+				util.GetLogger().Infoln("why r u runnin again", batchURL.ShortenedURL)
+				counter++
+				break
+			}
+			if i == len(*curURLsPtr.Urls)-1 {
+				util.GetLogger().Infoln("its right")
+				(*batch)[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+				notYetWritten = append(notYetWritten, state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(*batch)-counter, ShortURL: (*batch)[j].ShortenedURL, OriginalURL: batchURL.OriginalURL})
+			}
+		}
+	}
+	util.GetLogger().Infoln("res", *batch)
+	batchToReturn := make([]domain.BatchElementResult, 0)
+	for _, res := range *batch {
+		batchToReturn = append(batchToReturn, domain.BatchElementResult{ID: res.ID, ShortenedURL: res.ShortenedURL})
+	}
+	if counter == len(*batch) {
+		util.GetLogger().Infoln("why r u runnin")
+		return batchToReturn, nil
+	}
+
+	util.GetLogger().Infoln("not written", notYetWritten)
+	err = s.repo.CreateBatch(ctx, &notYetWritten)
+	if err != nil {
+		return nil, err
+	}
+
+	util.GetLogger().Infoln("т", *curURLsPtr.Urls)
+	curURLsPtr.Lock()
+	*curURLsPtr.Urls = append(*curURLsPtr.Urls, notYetWritten...)
+	curURLsPtr.Unlock()
+	util.GetLogger().Infoln("у", *curURLsPtr.Urls)
+
+	return batchToReturn, nil
+}
+
 func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {

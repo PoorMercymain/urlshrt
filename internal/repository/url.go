@@ -133,3 +133,66 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
 	}
 	return err
 }
+
+func (r *url) CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) error {
+	var db *sql.DB
+	var err error
+	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
+		if r.location == "" {
+			return nil
+		}
+		err := os.MkdirAll(filepath.Dir(r.location), 0600)
+		if err != nil {
+			util.GetLogger().Infoln("save mkdir", err)
+			return err
+		}
+
+		f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			util.GetLogger().Infoln("save", err)
+			return err
+		}
+
+		defer func() error {
+			if err := f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}()
+
+		for _, str := range *batch {
+			jsonByteSlice, err := json.Marshal(str)
+			if err != nil {
+				return err
+			}
+			buf := bytes.NewBuffer(jsonByteSlice)
+			buf.WriteByte('\n')
+			f.WriteString(buf.String())
+		}
+
+		return nil
+	}
+
+	tx, err := db.Begin()
+    if err != nil {
+        return err
+    }
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)")
+
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	for _, url := range *batch {
+		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
