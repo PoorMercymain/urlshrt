@@ -74,6 +74,9 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
 	urlsFromPg := make([]state.URLStringJSON, 0)
 	for rows.Next() {
 		var u state.URLStringJSON
