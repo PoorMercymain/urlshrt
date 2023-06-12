@@ -123,11 +123,11 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 		return "", err
 	}
 
-	for _, url := range *curURLsPtr.Urls {
+	/*for _, url := range *curURLsPtr.Urls {
 		if original == url.OriginalURL {
 			return url.ShortURL, nil
 		}
-	}
+	}*/
 
 	var shortenedURL string
 
@@ -142,11 +142,14 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	}
 
 	createdURLStruct := state.URLStringJSON{UUID: len(*curURLsPtr.Urls), ShortURL: shortenedURL, OriginalURL: original}
+	shrt, err := s.repo.Create(ctx, []state.URLStringJSON{createdURLStruct})
+	if err != nil {
+		return shrt, err
+	}
+
 	curURLsPtr.Lock()
 	*curURLsPtr.Urls = append(*curURLsPtr.Urls, createdURLStruct)
 	curURLsPtr.Unlock()
-
-	s.repo.Create(ctx, []state.URLStringJSON{createdURLStruct})
 
 	return shortenedURL, nil
 }

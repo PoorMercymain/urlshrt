@@ -15,7 +15,7 @@ type URLService interface {
 
 type URLRepository interface {
 	ReadAll(ctx context.Context) ([]state.URLStringJSON, error)
-	Create(ctx context.Context, urls []state.URLStringJSON) error
+	Create(ctx context.Context, urls []state.URLStringJSON) (string, error)
 	CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) error
 	PingPg(ctx context.Context) error
 }

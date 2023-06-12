@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
@@ -64,15 +65,20 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	scanner.Scan()
 	originalURL = scanner.Text()
 
-	shortenedURL, err := h.srv.CreateShortened(r.Context(), originalURL)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
 		addr = addr + "/"
+	}
+
+	shortenedURL, err := h.srv.CreateShortened(r.Context(), originalURL)
+	if err != nil && strings.HasPrefix(err.Error(), "ERROR: duplicate key value violates unique constraint") {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(addr + shortenedURL))
+		return
+	} else if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
@@ -103,21 +109,25 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortened, err := h.srv.CreateShortened(r.Context(), orig.URL)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	var shortenedJSONBytes []byte
-	buf := bytes.NewBuffer(shortenedJSONBytes)
-
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
 		addr = addr + "/"
 	}
+
+	shortened, err := h.srv.CreateShortened(r.Context(), orig.URL)
+	if err != nil && strings.HasPrefix(err.Error(), "ERROR: duplicate key value violates unique constraint") {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+	} else if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+	}
+
+	var shortenedJSONBytes []byte
+	buf := bytes.NewBuffer(shortenedJSONBytes)
 
 	shortenedResponse := struct {
 		Result string `json:"result"`

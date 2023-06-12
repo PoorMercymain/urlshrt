@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
@@ -90,23 +92,23 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	return urlsFromPg, nil
 }
 
-func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
+func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, error) {
 	var db *sql.DB
 	var err error
 	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
 		if r.location == "" {
-			return nil
+			return "", nil
 		}
 		err := os.MkdirAll(filepath.Dir(r.location), 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save mkdir", err)
-			return err
+			return "", err
 		}
 
 		f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save", err)
-			return err
+			return "", err
 		}
 
 		defer func() error {
@@ -119,19 +121,36 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) error {
 		for _, str := range urls {
 			jsonByteSlice, err := json.Marshal(str)
 			if err != nil {
-				return err
+				return "", err
 			}
 			buf := bytes.NewBuffer(jsonByteSlice)
 			buf.WriteByte('\n')
 			f.WriteString(buf.String())
 		}
 
-		return nil
+		return "", nil
 	}
 	for _, url := range urls {
 		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)", url.UUID, url.ShortURL, url.OriginalURL)
+		if err != nil {
+			util.GetLogger().Infoln("here and...", err)
+			if strings.HasPrefix(err.Error(), "ERROR: duplicate key value violates unique constraint") {
+				uErr := domain.NewUniqueError(err)
+				util.GetLogger().Infoln("here.", uErr, "orig", url.OriginalURL)
+				row := db.QueryRow("SELECT short FROM urlshrt WHERE original = $1", url.OriginalURL)
+				var shrt string
+				errScan := row.Scan(&shrt)
+				if errScan != nil {
+					util.GetLogger().Infoln(errScan)
+					return "", errScan
+				}
+				util.GetLogger().Infoln("also", shrt)
+				return shrt, uErr
+			}
+		}
+
 	}
-	return err
+	return "", nil
 }
 
 func (r *url) CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) error {
