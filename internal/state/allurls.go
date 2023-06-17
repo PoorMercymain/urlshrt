@@ -6,13 +6,13 @@ import (
 )
 
 type currentUrls struct {
-	Urls *[]URLStringJSON
+	Urls *map[string]URLStringJSON
 	*sync.Mutex
 }
 
 var urls *currentUrls
 
-func InitCurrentURLs(startURLs *[]URLStringJSON) {
+func InitCurrentURLs(startURLs *map[string]URLStringJSON) {
 	urls = &currentUrls{Urls: startURLs, Mutex: new(sync.Mutex)}
 }
 

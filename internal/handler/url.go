@@ -3,9 +3,11 @@ package handler
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
@@ -70,8 +72,18 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 		addr = addr + "/"
 	}
 
-	shortenedURL, err := h.srv.CreateShortened(r.Context(), originalURL)
-	if err != nil && strings.HasPrefix(err.Error(), "ERROR: duplicate key value violates unique constraint") {
+	ctx := r.Context()
+	randSeed, err := strconv.Atoi(r.Header.Get("RandSeed"))
+	if err != nil {
+		util.GetLogger().Infoln("RandSeed not provided through request headers or incorrect")
+	} else {
+		ctx = context.WithValue(r.Context(), domain.Key("seed"), int64(randSeed))
+		util.GetLogger().Infoln("RandSeed provided", randSeed)
+	}
+	util.GetLogger().Infoln(ctx)
+	shortenedURL, err := h.srv.CreateShortened(ctx, originalURL)
+	var uErr *domain.UniqueError
+	if err != nil && errors.As(err, &uErr) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusConflict)
 		w.Write([]byte(addr + shortenedURL))
@@ -115,7 +127,8 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shortened, err := h.srv.CreateShortened(r.Context(), orig.URL)
-	if err != nil && strings.HasPrefix(err.Error(), "ERROR: duplicate key value violates unique constraint") {
+	var uErr *domain.UniqueError
+	if err != nil && errors.As(err, &uErr) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
 	} else if err != nil {

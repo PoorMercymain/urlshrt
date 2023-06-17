@@ -6,14 +6,16 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type url struct {
@@ -131,10 +133,12 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 		return "", nil
 	}
 	for _, url := range urls {
+
+		var pgErr *pgconn.PgError
 		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)", url.UUID, url.ShortURL, url.OriginalURL)
 		if err != nil {
 			util.GetLogger().Infoln("here and...", err)
-			if strings.HasPrefix(err.Error(), "ERROR: duplicate key value violates unique constraint") {
+			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 				uErr := domain.NewUniqueError(err)
 				util.GetLogger().Infoln("here.", uErr, "orig", url.OriginalURL)
 				row := db.QueryRow("SELECT short FROM urlshrt WHERE original = $1", url.OriginalURL)

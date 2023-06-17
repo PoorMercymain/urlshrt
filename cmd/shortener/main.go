@@ -29,7 +29,12 @@ func router(pathToRepo string) chi.Router {
 		urls = make([]state.URLStringJSON, 1)
 	}
 
-	state.InitCurrentURLs(&urls)
+	urlsMap := make(map[string]state.URLStringJSON)
+	for _, u := range urls {
+		urlsMap[u.OriginalURL] = u
+	}
+
+	state.InitCurrentURLs(&urlsMap)
 
 	r := chi.NewRouter()
 

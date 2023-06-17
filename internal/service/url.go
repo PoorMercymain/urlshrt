@@ -52,6 +52,18 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 			(*batch)[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
 			notYetWritten = append(notYetWritten, state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(*batch)-counter, ShortURL: (*batch)[j].ShortenedURL, OriginalURL: batchURL.OriginalURL})
 		}
+
+		if foundURL, ok := (*curURLsPtr.Urls)[batchURL.OriginalURL]; ok {
+			(*batch)[j].ShortenedURL = foundURL.ShortURL
+		} else {
+			(*batch)[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+			notYetWritten = append(notYetWritten, state.URLStringJSON{
+				UUID: len(*curURLsPtr.Urls)+len(*batch)-counter,
+				ShortURL: (*batch)[j].ShortenedURL,
+				OriginalURL: batchURL.OriginalURL,
+			})
+		}
+		/*
 		for i, curURL := range *curURLsPtr.Urls {
 			if curURL.OriginalURL == batchURL.OriginalURL {
 				util.GetLogger().Infoln("why r u here", curURL.ShortURL)
@@ -66,6 +78,7 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 				notYetWritten = append(notYetWritten, state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(*batch)-counter, ShortURL: (*batch)[j].ShortenedURL, OriginalURL: batchURL.OriginalURL})
 			}
 		}
+		*/
 	}
 
 
@@ -88,7 +101,10 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 
 	util.GetLogger().Infoln("т", *curURLsPtr.Urls)
 	curURLsPtr.Lock()
-	*curURLsPtr.Urls = append(*curURLsPtr.Urls, notYetWritten...)
+	for _, url := range notYetWritten {
+		(*curURLsPtr.Urls)[url.OriginalURL] = url
+	}
+	//*curURLsPtr.Urls = append(*curURLsPtr.Urls, notYetWritten...)
 	curURLsPtr.Unlock()
 	util.GetLogger().Infoln("у", *curURLsPtr.Urls)
 
@@ -102,6 +118,7 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error
 	}
 
 	for _, url := range *curURLsPtr.Urls {
+		util.GetLogger().Infoln(url.ShortURL)
 		if url.ShortURL == shortened {
 			return url.OriginalURL, nil
 		}
@@ -111,8 +128,9 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error
 
 func (s *url) CreateShortened(ctx context.Context, original string) (string, error) {
 	var random *rand.Rand
-	if rSeed := ctx.Value("seed"); rSeed != nil {
-		random = rand.New(rand.NewSource(ctx.Value("seed").(int64)))
+	if rSeed := ctx.Value(domain.Key("seed")); rSeed != nil {
+		util.GetLogger().Infoln(rSeed)
+		random = rand.New(rand.NewSource(rSeed.(int64)))
 	} else {
 		util.GetLogger().Infoln("seed not found in context, default value used")
 		random = rand.New(rand.NewSource(time.Now().Unix()))
@@ -148,7 +166,11 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	}
 
 	curURLsPtr.Lock()
-	*curURLsPtr.Urls = append(*curURLsPtr.Urls, createdURLStruct)
+	if _, ok := (*curURLsPtr.Urls)[createdURLStruct.OriginalURL]; !ok {
+		(*curURLsPtr.Urls)[createdURLStruct.OriginalURL] = createdURLStruct
+	}
+
+	//*curURLsPtr.Urls = append(*curURLsPtr.Urls, createdURLStruct)
 	curURLsPtr.Unlock()
 
 	return shortenedURL, nil
