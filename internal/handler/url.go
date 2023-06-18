@@ -182,14 +182,12 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	util.GetLogger().Infoln("handler", orig)
+
 	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), &orig)
 	if err != nil {
-		util.GetLogger().Infoln(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	util.GetLogger().Infoln("still handler", shortened)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

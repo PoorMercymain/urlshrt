@@ -19,17 +19,18 @@ import (
 )
 
 type url struct {
-	location string
+	locationOfJSON string
+	pg *state.Postgres
 }
 
-func NewURL(location string) *url {
-	return &url{location: location}
+func NewURL(locationOfJSON string, pg *state.Postgres) *url {
+	return &url{locationOfJSON: locationOfJSON, pg: pg}
 }
 
 func (r *url) PingPg(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
     defer cancel()
-	pg, err := state.GetPgPtr()
+	pg, err := r.pg.GetPgPtr()
 	if err != nil {
 		return err
 	}
@@ -40,11 +41,9 @@ func (r *url) PingPg(ctx context.Context) error {
 func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
 	var err error
-	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
-		f, err := os.Open(r.location)
-		util.GetLogger().Infoln("got")
+	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
+		f, err := os.Open(r.locationOfJSON)
 		if err != nil {
-			util.GetLogger().Infoln("get", err)
 			return nil, err
 		}
 
@@ -97,17 +96,18 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, error) {
 	var db *sql.DB
 	var err error
-	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
-		if r.location == "" {
+
+	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
+		if r.locationOfJSON == "" {
 			return "", nil
 		}
-		err := os.MkdirAll(filepath.Dir(r.location), 0600)
+		err := os.MkdirAll(filepath.Dir(r.locationOfJSON), 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save mkdir", err)
 			return "", err
 		}
 
-		f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		f, err := os.OpenFile(r.locationOfJSON, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save", err)
 			return "", err
@@ -120,14 +120,25 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 			return nil
 		}()
 
+		urlsFromFile, err := r.ReadAll(ctx)
+		if err != nil {
+			return "", err
+		}
+		urlsFromFileMap := make(map[string]state.URLStringJSON)
+		for _, url := range urlsFromFile {
+			urlsFromFileMap[url.OriginalURL] = url
+		}
+
 		for _, str := range urls {
-			jsonByteSlice, err := json.Marshal(str)
-			if err != nil {
-				return "", err
+			if _, ok := urlsFromFileMap[str.OriginalURL]; !ok {
+				jsonByteSlice, err := json.Marshal(str)
+				if err != nil {
+					return "", err
+				}
+				buf := bytes.NewBuffer(jsonByteSlice)
+				buf.WriteByte('\n')
+				f.WriteString(buf.String())
 			}
-			buf := bytes.NewBuffer(jsonByteSlice)
-			buf.WriteByte('\n')
-			f.WriteString(buf.String())
 		}
 
 		return "", nil
@@ -137,18 +148,14 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 		var pgErr *pgconn.PgError
 		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)", url.UUID, url.ShortURL, url.OriginalURL)
 		if err != nil {
-			util.GetLogger().Infoln("here and...", err)
 			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 				uErr := domain.NewUniqueError(err)
-				util.GetLogger().Infoln("here.", uErr, "orig", url.OriginalURL)
 				row := db.QueryRow("SELECT short FROM urlshrt WHERE original = $1", url.OriginalURL)
 				var shrt string
 				errScan := row.Scan(&shrt)
 				if errScan != nil {
-					util.GetLogger().Infoln(errScan)
 					return "", errScan
 				}
-				util.GetLogger().Infoln("also", shrt)
 				return shrt, uErr
 			}
 		}
@@ -160,17 +167,22 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 func (r *url) CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) error {
 	var db *sql.DB
 	var err error
-	if db, err = state.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || state.GetDSN() == "" {
-		if r.location == "" {
+
+	if r.pg != nil {
+		db, err = r.pg.GetPgPtr()
+	}
+
+	if r.pg == nil || err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
+		if r.locationOfJSON == "" {
 			return nil
 		}
-		err := os.MkdirAll(filepath.Dir(r.location), 0600)
+		err := os.MkdirAll(filepath.Dir(r.locationOfJSON), 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save mkdir", err)
 			return err
 		}
 
-		f, err := os.OpenFile(r.location, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		f, err := os.OpenFile(r.locationOfJSON, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save", err)
 			return err

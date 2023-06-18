@@ -42,7 +42,6 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 
 	notYetWritten := make([]state.URLStringJSON, 0)
 
-	//TODO: use map
 	var counter int
 	util.GetLogger().Infoln("its them", *curURLsPtr.Urls, "len", len(*curURLsPtr.Urls))
 
@@ -63,22 +62,6 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 				OriginalURL: batchURL.OriginalURL,
 			})
 		}
-		/*
-		for i, curURL := range *curURLsPtr.Urls {
-			if curURL.OriginalURL == batchURL.OriginalURL {
-				util.GetLogger().Infoln("why r u here", curURL.ShortURL)
-				(*batch)[j].ShortenedURL = curURL.ShortURL
-				util.GetLogger().Infoln("why r u runnin again", batchURL.ShortenedURL)
-				counter++
-				break
-			}
-			if i == len(*curURLsPtr.Urls)-1 || len(*curURLsPtr.Urls) == 0{
-				util.GetLogger().Infoln("its right")
-				(*batch)[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
-				notYetWritten = append(notYetWritten, state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(*batch)-counter, ShortURL: (*batch)[j].ShortenedURL, OriginalURL: batchURL.OriginalURL})
-			}
-		}
-		*/
 	}
 
 
@@ -89,7 +72,6 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 		batchToReturn = append(batchToReturn, domain.BatchElementResult{ID: res.ID, ShortenedURL: res.ShortenedURL})
 	}
 	if counter == len(*batch) {
-		util.GetLogger().Infoln("why r u runnin")
 		return batchToReturn, nil
 	}
 
@@ -99,14 +81,12 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 		return nil, err
 	}
 
-	util.GetLogger().Infoln("т", *curURLsPtr.Urls)
 	curURLsPtr.Lock()
 	for _, url := range notYetWritten {
 		(*curURLsPtr.Urls)[url.OriginalURL] = url
 	}
-	//*curURLsPtr.Urls = append(*curURLsPtr.Urls, notYetWritten...)
+
 	curURLsPtr.Unlock()
-	util.GetLogger().Infoln("у", *curURLsPtr.Urls)
 
 	return batchToReturn, nil
 }
@@ -141,12 +121,6 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 		return "", err
 	}
 
-	/*for _, url := range *curURLsPtr.Urls {
-		if original == url.OriginalURL {
-			return url.ShortURL, nil
-		}
-	}*/
-
 	var shortenedURL string
 
 	const shrtURLReqLen = 7
@@ -160,6 +134,7 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	}
 
 	createdURLStruct := state.URLStringJSON{UUID: len(*curURLsPtr.Urls), ShortURL: shortenedURL, OriginalURL: original}
+
 	shrt, err := s.repo.Create(ctx, []state.URLStringJSON{createdURLStruct})
 	if err != nil {
 		return shrt, err
@@ -168,10 +143,12 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	curURLsPtr.Lock()
 	if _, ok := (*curURLsPtr.Urls)[createdURLStruct.OriginalURL]; !ok {
 		(*curURLsPtr.Urls)[createdURLStruct.OriginalURL] = createdURLStruct
+	} else {
+		shortenedURL = (*curURLsPtr.Urls)[createdURLStruct.OriginalURL].ShortURL
 	}
 
-	//*curURLsPtr.Urls = append(*curURLsPtr.Urls, createdURLStruct)
 	curURLsPtr.Unlock()
+	util.GetLogger().Infoln(curURLsPtr.Urls)
 
 	return shortenedURL, nil
 }

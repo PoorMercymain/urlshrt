@@ -18,8 +18,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func router(pathToRepo string) chi.Router {
-	ur := repository.NewURL(pathToRepo)
+func router(pathToRepo string, pg *state.Postgres) chi.Router {
+	ur := repository.NewURL(pathToRepo, pg)
 	us := service.NewURL(ur)
 	uh := handler.NewURL(us)
 
@@ -96,15 +96,21 @@ func main() {
 		conf.DSN = dsnEnv
 	}
 
-	err := state.ConnectToPG(conf.DSN)
-	if err != nil {
-		fmt.Println(err)
+	pg := &state.Postgres{}
+	var err error
+	
+	if conf.DSN != "" {
+		pg, err = state.NewPG(conf.DSN)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(pg)
+		pgPtr, err := pg.GetPgPtr()
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer pgPtr.Close()
 	}
-	pgPtr, err := state.GetPgPtr()
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer pgPtr.Close()
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: "http://localhost:8080/", WasSet: true}
@@ -128,7 +134,7 @@ func main() {
 
 	state.InitShortAddress(conf.ShortAddr.Addr)
 
-	r := router(conf.JSONFile)
+	r := router(conf.JSONFile, pg)
 
 	util.GetLogger().Infoln(conf)
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")

@@ -10,6 +10,7 @@ type currentUrls struct {
 	*sync.Mutex
 }
 
+// TODO: change from global
 var urls *currentUrls
 
 func InitCurrentURLs(startURLs *map[string]URLStringJSON) {
@@ -20,6 +21,6 @@ func GetCurrentURLsPtr() (*currentUrls, error) {
 	if urls != nil {
 		return urls, nil
 	} else {
-		return nil, errors.New("curtrent urls should be initialized")
+		return nil, errors.New("current urls should be initialized")
 	}
 }

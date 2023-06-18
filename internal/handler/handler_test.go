@@ -86,7 +86,9 @@ func router() chi.Router {
 
 	defer util.GetLogger().Sync()
 
-	ur := repository.NewURL("")
+	pg := &state.Postgres{}
+
+	ur := repository.NewURL("", pg)
 	us := service.NewURL(ur)
 	uh := NewURL(us)
 

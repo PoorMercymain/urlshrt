@@ -1,49 +1,53 @@
 package state
 
 import (
+	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"os"
 
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
-var pg *sql.DB
-var dsn string
+type Postgres struct {
+	pg *sql.DB
+	dsn string
+}
 
-func ConnectToPG(DSN string) error {
+func NewPG(DSN string) (*Postgres, error) {
 	var err error
-	pg, err = sql.Open("pgx", DSN)
+	pg, err := sql.Open("pgx", DSN)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = goose.SetDialect("postgres")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	err = pg.PingContext(context.Background())
+	if err != nil {
+		return &Postgres{}, err
+	}
 
 	err = goose.Run("up", pg, "./pkg/migrations")
 	if err != nil {
-		curDir, errCurDir := os.Getwd()
-		fmt.Println("\nhere", curDir, "err", errCurDir)
-		return err
+		util.GetLogger().Infoln(err)
+		return nil, err
 	}
 
-	//_, err = pg.Exec("CREATE TABLE IF NOT EXISTS urlshrt(uuid INTEGER, short text, original text primary key)")
-	dsn = DSN
-	return err
+	dsn := DSN
+	return &Postgres{pg: pg, dsn: dsn}, err
 }
 
-func GetPgPtr() (*sql.DB, error) {
-	if pg != nil {
-		return pg, nil
+func(s *Postgres) GetPgPtr() (*sql.DB, error) {
+	if s.pg != nil {
+		return s.pg, nil
 	}
-	return pg, errors.New("postgres was not initialized")
+	return s.pg, errors.New("postgres was not initialized")
 }
 
-func GetDSN() string {
-	return dsn
+func(s *Postgres) GetDSN() string {
+	return s.dsn
 }
