@@ -147,6 +147,7 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	}{
 		Result: addr + shortened,
 	}
+	util.GetLogger().Infoln("sending...", shortenedResponse)
 	err = json.NewEncoder(buf).Encode(shortenedResponse)
 	if err != nil {
 		util.GetLogger().Errorln(err)
