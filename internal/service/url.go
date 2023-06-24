@@ -24,7 +24,7 @@ func (s *url) PingPg(ctx context.Context) error {
 	return err
 }
 
-func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.BatchElement) ([]domain.BatchElementResult, error) {
+func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.BatchElement) ([]domain.BatchElementResult, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
 		return nil, err
@@ -40,50 +40,50 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch *[]domain.Batc
 
 	const shrtURLReqLen = 7
 
-	notYetWritten := make([]state.URLStringJSON, 0)
+	notYetWritten := make([]*state.URLStringJSON, 0)
 
 	var counter int
 	util.GetLogger().Infoln("its them", *curURLsPtr.Urls, "len", len(*curURLsPtr.Urls))
 
-	for j, batchURL := range *batch {
+	for j, batchURL := range batch {
 		if len(*curURLsPtr.Urls) == 0 {
-			util.GetLogger().Infoln("its all right")
-			(*batch)[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
-			notYetWritten = append(notYetWritten, state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(*batch)-counter, ShortURL: (*batch)[j].ShortenedURL, OriginalURL: batchURL.OriginalURL})
+			batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+			notYetWritten = append(notYetWritten, &(state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(batch)-counter, ShortURL: batch[j].ShortenedURL, OriginalURL: batchURL.OriginalURL}))
+			continue
 		}
 
 		if foundURL, ok := (*curURLsPtr.Urls)[batchURL.OriginalURL]; ok {
-			(*batch)[j].ShortenedURL = foundURL.ShortURL
+			batch[j].ShortenedURL = foundURL.ShortURL
 		} else {
-			(*batch)[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
-			notYetWritten = append(notYetWritten, state.URLStringJSON{
-				UUID: len(*curURLsPtr.Urls)+len(*batch)-counter,
-				ShortURL: (*batch)[j].ShortenedURL,
+			batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+			notYetWritten = append(notYetWritten, &(state.URLStringJSON{
+				UUID: len(*curURLsPtr.Urls)+len(batch)-counter,
+				ShortURL: batch[j].ShortenedURL,
 				OriginalURL: batchURL.OriginalURL,
-			})
+			}))
 		}
 	}
 
 
 
-	util.GetLogger().Infoln("res", *batch)
+	util.GetLogger().Infoln("res", batch)
 	batchToReturn := make([]domain.BatchElementResult, 0)
-	for _, res := range *batch {
+	for _, res := range batch {
 		batchToReturn = append(batchToReturn, domain.BatchElementResult{ID: res.ID, ShortenedURL: res.ShortenedURL})
 	}
-	if counter == len(*batch) {
+	if counter == len(batch) {
 		return batchToReturn, nil
 	}
 
 	util.GetLogger().Infoln("not written", notYetWritten)
-	err = s.repo.CreateBatch(ctx, &notYetWritten)
+	err = s.repo.CreateBatch(ctx, notYetWritten)
 	if err != nil {
 		return nil, err
 	}
 
 	curURLsPtr.Lock()
 	for _, url := range notYetWritten {
-		(*curURLsPtr.Urls)[url.OriginalURL] = url
+		(*curURLsPtr.Urls)[url.OriginalURL] = *url
 	}
 
 	curURLsPtr.Unlock()

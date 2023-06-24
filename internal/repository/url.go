@@ -164,7 +164,7 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 	return "", nil
 }
 
-func (r *url) CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) error {
+func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) error {
 	var db *sql.DB
 	var err error
 
@@ -195,7 +195,7 @@ func (r *url) CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) err
 			return nil
 		}()
 
-		for _, str := range *batch {
+		for _, str := range batch {
 			jsonByteSlice, err := json.Marshal(str)
 			if err != nil {
 				return err
@@ -222,7 +222,13 @@ func (r *url) CreateBatch(ctx context.Context, batch *[]state.URLStringJSON) err
 
 	defer stmt.Close()
 
-	for _, url := range *batch {
+	for _, bElem := range batch {
+		util.GetLogger().Infoln(*bElem)
+	}
+	util.GetLogger().Infoln(len(batch))
+
+	for _, url := range batch {
+		util.GetLogger().Infoln(url.OriginalURL, url.ShortURL)
 		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL)
 		if err != nil {
 			return err

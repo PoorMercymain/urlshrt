@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: urlshrt
       POSTGRES_DB: urlshrt
     volumes:
-      - C:\postgresql\urlshrt:/var/lib/postgresql/data
+      - ./urlshrt:/var/lib/postgresql/data
     ports:
       - "3000:5432"
     command: [ "postgres", "-c", "log_statement=all" ]

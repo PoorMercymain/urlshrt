@@ -156,7 +156,7 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
-	orig := make([]domain.BatchElement, 0)
+	orig := make([]*domain.BatchElement, 0)
 
 	if len(r.Header.Values("Content-Type")) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -183,7 +183,10 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), &orig)
+	//origPtrs := make([]*domain.BatchElement, 0)
+
+
+	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), orig)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
