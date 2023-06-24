@@ -42,36 +42,39 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 
 	notYetWritten := make([]*state.URLStringJSON, 0)
 
-	var counter int
 	util.GetLogger().Infoln("its them", *curURLsPtr.Urls, "len", len(*curURLsPtr.Urls))
+	allShortURLs := make(map[string]bool)
+	for _, urlFromCurURLs := range (*curURLsPtr.Urls) {
+		allShortURLs[urlFromCurURLs.ShortURL] = true
+	}
 
+	var uuidShift int
 	for j, batchURL := range batch {
-		if len(*curURLsPtr.Urls) == 0 {
-			batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
-			notYetWritten = append(notYetWritten, &(state.URLStringJSON{UUID: len(*curURLsPtr.Urls)+len(batch)-counter, ShortURL: batch[j].ShortenedURL, OriginalURL: batchURL.OriginalURL}))
-			continue
-		}
-
 		if foundURL, ok := (*curURLsPtr.Urls)[batchURL.OriginalURL]; ok {
 			batch[j].ShortenedURL = foundURL.ShortURL
 		} else {
-			batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
-			notYetWritten = append(notYetWritten, &(state.URLStringJSON{
-				UUID: len(*curURLsPtr.Urls)+len(batch)-counter,
-				ShortURL: batch[j].ShortenedURL,
-				OriginalURL: batchURL.OriginalURL,
-			}))
+			uuidShift += 1
+			for {
+				batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+				if _, shortExists := allShortURLs[batch[j].ShortenedURL]; !shortExists {
+					notYetWritten = append(notYetWritten, &(state.URLStringJSON{
+						UUID: len(*curURLsPtr.Urls)+uuidShift,
+						ShortURL: batch[j].ShortenedURL,
+						OriginalURL: batch[j].OriginalURL,
+					}))
+					allShortURLs[batch[j].ShortenedURL] = true
+					break
+				}
+			}
 		}
 	}
-
-
 
 	util.GetLogger().Infoln("res", batch)
 	batchToReturn := make([]domain.BatchElementResult, 0)
 	for _, res := range batch {
 		batchToReturn = append(batchToReturn, domain.BatchElementResult{ID: res.ID, ShortenedURL: res.ShortenedURL})
 	}
-	if counter == len(batch) {
+	if uuidShift == 0 {
 		return batchToReturn, nil
 	}
 
