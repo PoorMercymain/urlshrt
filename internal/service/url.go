@@ -128,11 +128,16 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 
 	const shrtURLReqLen = 7
 
-	shortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+	curShrtURLs := make(map[string]bool, 0)
 
-	for _, url := range *curURLsPtr.Urls {
-		for shortenedURL == url.ShortURL {
-			shortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+	for _, curURL := range *curURLsPtr.Urls {
+		curShrtURLs[curURL.ShortURL] = true
+	}
+
+	for {
+		shortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
+		if _, shortExists := curShrtURLs[shortenedURL]; !shortExists {
+			break
 		}
 	}
 
