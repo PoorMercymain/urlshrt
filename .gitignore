@@ -21,3 +21,9 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+# Postgres data
+urlshrt/
+
+# JSON file to save URLs without Postgres
+tmp/

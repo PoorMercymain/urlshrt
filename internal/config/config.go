@@ -4,6 +4,7 @@ type Config struct {
 	HTTPAddr  AddrWithCheck
 	ShortAddr AddrWithCheck
 	JSONFile  string
+	DSN string
 }
 
 type AddrWithCheck struct {
