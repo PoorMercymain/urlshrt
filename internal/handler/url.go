@@ -89,12 +89,30 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(addr + shortenedURL))
 		return
 	} else if err != nil {
+		cookie, err := r.Cookie("auth")
+		if err != nil {
+			util.GetLogger().Infoln(err)
+		} else {
+			http.SetCookie(w, cookie)
+		}
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		util.GetLogger().Infoln(err)
+	} else {
+		http.SetCookie(w, cookie)
+	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	if unauthorized := ctx.Value(domain.Key("auth")); unauthorized != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+
 	w.Write([]byte(addr + shortenedURL))
 }
 
@@ -208,6 +226,56 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(buf).Encode(shortened)
+	if err != nil {
+		util.GetLogger().Errorln(err)
+		return
+	}
+	w.Write(buf.Bytes())
+}
+
+
+func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
+	UserURLs, err := h.srv.ReadUserURLs(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if len(UserURLs) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return
+	} else {
+		http.SetCookie(w, cookie)
+	}
+
+	if unauthorized := r.Context().Value(domain.Key("auth")); unauthorized != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	UserURLsOutput := make([]domain.UserOutput, 0)
+
+	addr := state.GetBaseShortAddress()
+	if addr[len(addr)-1] != '/' {
+		addr = addr + "/"
+	}
+
+	for _, usrURL := range UserURLs {
+		UserURLsOutput = append(UserURLsOutput, domain.UserOutput{ShortURL: addr + usrURL.ShortURL, OriginalURL: usrURL.OriginalURL})
+	}
+
+	var JSONBytes []byte
+	buf := bytes.NewBuffer(JSONBytes)
+
+	err = json.NewEncoder(buf).Encode(UserURLsOutput)
 	if err != nil {
 		util.GetLogger().Errorln(err)
 		return

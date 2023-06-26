@@ -19,6 +19,10 @@ func NewURL(repo domain.URLRepository) *url {
 	return &url{repo: repo}
 }
 
+func (s *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
+	return s.repo.ReadUserURLs(ctx)
+}
+
 func (s *url) PingPg(ctx context.Context) error {
 	err := s.repo.PingPg(ctx)
 	return err

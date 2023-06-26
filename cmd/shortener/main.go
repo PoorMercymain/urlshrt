@@ -43,12 +43,13 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
 	r.Get("/ping", WrapHandler(uh.PingPg))
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
+	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
 
 	return r
 }
 
 func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
-	return middleware.GzipHandle(middleware.WithLogging(h))
+	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
 }
 
 func main() {
@@ -98,7 +99,7 @@ func main() {
 
 	pg := &state.Postgres{}
 	var err error
-	
+
 	if conf.DSN != "" {
 		pg, err = state.NewPG(conf.DSN)
 		if err != nil {

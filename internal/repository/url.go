@@ -72,7 +72,7 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 
 		return jsonSlice, nil
 	}
-	rows, err := db.QueryContext(ctx, "SELECT * FROM urlshrt")
+	rows, err := db.QueryContext(ctx, "SELECT uuid, short, original FROM urlshrt")
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,8 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 	for _, url := range urls {
 
 		var pgErr *pgconn.PgError
-		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)", url.UUID, url.ShortURL, url.OriginalURL)
+		id := ctx.Value("id").(int64)
+		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4)", url.UUID, url.ShortURL, url.OriginalURL, id)
 		if err != nil {
 			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 				uErr := domain.NewUniqueError(err)
@@ -214,7 +215,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4)")
 
 	if err != nil {
 		return err
@@ -227,13 +228,49 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 	}
 	util.GetLogger().Infoln(len(batch))
 
+	id := ctx.Value("id")
+
 	for _, url := range batch {
 		util.GetLogger().Infoln(url.OriginalURL, url.ShortURL)
-		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL)
+		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL, id)
 		if err != nil {
 			return err
 		}
 	}
 
 	return tx.Commit()
+}
+
+func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
+	var db *sql.DB
+	var err error
+	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
+		if err != nil {
+			return make([]state.URLStringJSON, 0), err
+		} else {
+			return make([]state.URLStringJSON, 0), errors.New("postgres not found")
+		}
+	}
+
+	id := ctx.Value("id").(int64)
+
+	rows, err := db.QueryContext(ctx, "SELECT uuid, short, original FROM urlshrt WHERE user_id = $1", id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	urlsFromPg := make([]state.URLStringJSON, 0)
+	for rows.Next() {
+		var u state.URLStringJSON
+
+		err = rows.Scan(&u.UUID, &u.ShortURL, &u.OriginalURL)
+		if err != nil {
+			return nil, err
+		}
+		urlsFromPg = append(urlsFromPg, u)
+	}
+	return urlsFromPg, nil
 }
