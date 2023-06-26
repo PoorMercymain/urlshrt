@@ -107,12 +107,12 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	if unauthorized := ctx.Value(domain.Key("unauthorized")); unauthorized != nil {
+	/*if unauthorized := ctx.Value(domain.Key("unauthorized")); unauthorized != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 	} else {
 		w.WriteHeader(http.StatusCreated)
-	}
-
+	}*/
+	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(addr + shortenedURL))
 }
 
