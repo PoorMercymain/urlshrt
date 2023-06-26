@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 
+	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -17,7 +18,7 @@ type Claims struct {
 	UserID int64
 }
 
-func GetUserId(tokenString string) int64 {
+func GetUserID(tokenString string) int64 {
     claims := &Claims{}
     token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
         return []byte("ultrasecretkey"), nil
@@ -54,7 +55,7 @@ func BuildJWTString() (string, int64, error) {
         return "", -1, err
     }
 
-	util.GetLogger().Infoln("idd", id)
+	util.GetLogger().Infoln("id2", id)
 
     return tokenString, id.Int64(), nil
 }
@@ -89,7 +90,7 @@ func Authorize(h http.Handler) http.HandlerFunc {
 			util.GetLogger().Infoln("jwt str1", cookieString)
 		}
 
-		if id = GetUserId(cookieString); id == -1 || !hasCookie {
+		if id = GetUserID(cookieString); id == -1 || !hasCookie {
 			//создаем новую куку
 			//надо будет передавать через response в хэндлере
 			util.GetLogger().Infoln("здеся")
@@ -100,15 +101,15 @@ func Authorize(h http.Handler) http.HandlerFunc {
 				return
 			}
 			r.Header.Set("Cookie", "auth=" + jwtStr)
-			ctx = context.WithValue(ctx, "unauthorized", true)
+			ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
 		}
 		fmt.Println("id", id)
-		ctx = context.WithValue(ctx, "id", id)
+		ctx = context.WithValue(ctx, domain.Key("id"), id)
 
-		fmt.Println(ctx.Value("id").(int64))
+		fmt.Println(ctx.Value(domain.Key("id")).(int64))
 
 		r = r.WithContext(ctx)
-		fmt.Println(r.Context().Value("id"))
+		fmt.Println(r.Context().Value(domain.Key("id")))
 
 		h.ServeHTTP(w, r)
 	}

@@ -146,7 +146,7 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 	for _, url := range urls {
 
 		var pgErr *pgconn.PgError
-		id := ctx.Value("id").(int64)
+		id := ctx.Value(domain.Key("id")).(int64)
 		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4)", url.UUID, url.ShortURL, url.OriginalURL, id)
 		if err != nil {
 			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -228,7 +228,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 	}
 	util.GetLogger().Infoln(len(batch))
 
-	id := ctx.Value("id")
+	id := ctx.Value(domain.Key("id")).(int64)
 
 	for _, url := range batch {
 		util.GetLogger().Infoln(url.OriginalURL, url.ShortURL)
@@ -252,7 +252,7 @@ func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 		}
 	}
 
-	id := ctx.Value("id").(int64)
+	id := ctx.Value(domain.Key("id")).(int64)
 
 	rows, err := db.QueryContext(ctx, "SELECT uuid, short, original FROM urlshrt WHERE user_id = $1", id)
 	if err != nil {

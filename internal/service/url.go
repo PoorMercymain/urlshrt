@@ -35,8 +35,8 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 	}
 
 	var random *rand.Rand
-	if rSeed := ctx.Value("seed"); rSeed != nil {
-		random = rand.New(rand.NewSource(ctx.Value("seed").(int64)))
+	if rSeed := ctx.Value(domain.Key("seed")); rSeed != nil {
+		random = rand.New(rand.NewSource(ctx.Value(domain.Key("seed")).(int64)))
 	} else {
 		util.GetLogger().Infoln("seed not found in context, default value used")
 		random = rand.New(rand.NewSource(time.Now().Unix()))

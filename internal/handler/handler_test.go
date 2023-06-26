@@ -134,7 +134,7 @@ func TestRouter(t *testing.T) {
 		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg"},
 	}
 
-	re, _ := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
+	re, _ := testRequest(t, ts, http.StatusUnauthorized, testTable[0].body, "POST", testTable[0].url)
 	//assert.Equal(t, testTable[0].want, post)
 	re.Body.Close()
 

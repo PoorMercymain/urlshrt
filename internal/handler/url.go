@@ -107,7 +107,7 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	if unauthorized := ctx.Value(domain.Key("auth")); unauthorized != nil {
+	if unauthorized := ctx.Value(domain.Key("unauthorized")); unauthorized != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 	} else {
 		w.WriteHeader(http.StatusCreated)
@@ -254,7 +254,7 @@ func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 	}
 
-	if unauthorized := r.Context().Value(domain.Key("auth")); unauthorized != nil {
+	if unauthorized := r.Context().Value(domain.Key("unauthorized")); unauthorized != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
