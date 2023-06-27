@@ -309,6 +309,7 @@ func (h *url) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	util.GetLogger().Infoln("попытка удалить", short)
 
 	if len(short) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
