@@ -109,7 +109,7 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error
 			util.GetLogger().Infoln(err)
 		}
 		for _, url := range *curURLsPtr.Urls {
-			util.GetLogger().Infoln(url.ShortURL)
+			//util.GetLogger().Infoln(url.ShortURL)
 			if url.ShortURL == shortened {
 				return url.OriginalURL, nil
 			}

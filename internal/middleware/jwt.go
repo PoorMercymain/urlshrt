@@ -72,11 +72,11 @@ func Authorize(h http.Handler) http.HandlerFunc {
 		var hasCookie bool
 		var cookieString string
 		if !errors.Is(err, http.ErrNoCookie) {
-			util.GetLogger().Infoln("тута")
+			//util.GetLogger().Infoln("тута")
 			hasCookie = true
 			cookieString = cookie.String()
 		} else {
-			util.GetLogger().Infoln("тута1")
+			//util.GetLogger().Infoln("тута1")
 			cookieString = ""
 		}
 
@@ -85,15 +85,15 @@ func Authorize(h http.Handler) http.HandlerFunc {
 		ctx := r.Context()
 
 		if len(cookieString) > 5 {
-			util.GetLogger().Infoln("jwt str", cookieString)
+			//util.GetLogger().Infoln("jwt str", cookieString)
 			cookieString = cookieString[len("auth="):]
-			util.GetLogger().Infoln("jwt str1", cookieString)
+			//util.GetLogger().Infoln("jwt str1", cookieString)
 		}
 
 		if id = GetUserID(cookieString); id == -1 || !hasCookie {
 			//создаем новую куку
 			//надо будет передавать через response в хэндлере
-			util.GetLogger().Infoln("здеся")
+			//util.GetLogger().Infoln("здеся")
 
 			jwtStr, id, err = BuildJWTString()
 			if err != nil {
