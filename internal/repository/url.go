@@ -306,25 +306,19 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	}
 	close(inputChan)
 	util.GetLogger().Infoln(len(inputChan))
-	var wg sync.WaitGroup
-	wg.Add(len(inputChan))
-	for i := 0; i < runtime.NumCPU(); i++ {
-		if u, ok := <-inputChan; ok {
-			u := u
-			go func() {
-				var userID int
-				var isDeleted int
-				row := statement.QueryRow(u)
-				row.Scan(&userID, &isDeleted)
-				if int64(userID) == ctx.Value(domain.Key("id")).(int64) {
-					shortURLsChan <-u
-					util.GetLogger().Infoln("положил", u)
-				}
-				wg.Done()
-				if time.Since(begin) > time.Second*30 {
-					util.GetLogger().Infoln("зависло1")
-				}
-			}()
+	if u, ok := <-inputChan; ok {
+		//u := u
+		var userID int
+		var isDeleted int
+		row := statement.QueryRow(u)
+		row.Scan(&userID, &isDeleted)
+		if int64(userID) == ctx.Value(domain.Key("id")).(int64) {
+			shortURLsChan <-u
+			util.GetLogger().Infoln("положил", u)
+		}
+
+		if time.Since(begin) > time.Second*30 {
+			util.GetLogger().Infoln("зависло1")
 		}
 	}
 
@@ -344,7 +338,6 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	}
 
 	defer stmt.Close()
-	wg.Wait()
 	close(shortURLsChan)
 	urlsToDelete := make([]string, 0)
 	for short := range shortURLsChan {
