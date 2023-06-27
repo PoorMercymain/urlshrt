@@ -18,7 +18,6 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
-	"golang.org/x/sync/errgroup"
 )
 
 type url struct {
@@ -316,7 +315,6 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 				if int64(userID) == ctx.Value(domain.Key("id")).(int64) && isDeleted == 0 {
 					shortURLsChan <-u
 					util.GetLogger().Infoln("положил", u)
-					wg.Add(1)
 				}
 				wg.Done()
 				if time.Since(begin) > time.Second*30 {
@@ -333,43 +331,31 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urlshrt SET is_deleted = 1 WHERE short = $1")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urlshrt SET is_deleted = 1 WHERE short = ANY($1)")
 
 	if err != nil {
 		return err
 	}
 
 	defer stmt.Close()
-	g := new(errgroup.Group)
+	wg.Wait()
+	close(shortURLsChan)
+	urlsToDelete := make([]string, 0)
+	for short := range shortURLsChan {
+		urlsToDelete = append(urlsToDelete, short)
+	}
 
-	g.Go(func() error {
-		for {
-			short, ok := <-shortURLsChan
-			if !ok {
-				return nil
-			}
-			_, err = stmt.ExecContext(ctx, short)
-			util.GetLogger().Infoln("shrt", short)
-
-			if err != nil {
-				wg.Done()
-				return err
-			}
-			wg.Done()
-			util.GetLogger().Infoln("l e n", len(shortURLsChan))
-			if len(shortURLsChan) == 0 {
-				return nil
-			}
-			if time.Since(begin) > time.Second*30 {
-				util.GetLogger().Infoln("зависло")
-			}
-		}
-	})
-
-	if err := g.Wait(); err != nil {
+	_, err = stmt.ExecContext(ctx, urlsToDelete)
+	util.GetLogger().Infoln("shrt", urlsToDelete)
+	if err != nil {
 		return err
 	}
-	wg.Wait()
+
+	if time.Since(begin) > time.Second*30 {
+		util.GetLogger().Infoln("зависло")
+	}
+
+
 	return tx.Commit()
 }
 
