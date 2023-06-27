@@ -285,23 +285,28 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	if r.pg != nil {
 		db, err = r.pg.GetPgPtr()
 		if err != nil {
+			util.GetLogger().Infoln("err1", err)
 			return err
 		}
 	}
 
 	shortURLsChan := make(chan string, len(shortURLs))
 
-	statement, err := db.PrepareContext(ctx, "SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
+	statement, err := db.Prepare("SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
 	if err != nil {
+		util.GetLogger().Infoln("err2", err)
 		return err
 	}
 	defer statement.Close()
 	inputChan := make(chan string, len(shortURLs))
 
+	util.GetLogger().Infoln(shortURLs)
 	for _, url := range shortURLs {
+		util.GetLogger().Infoln(url)
 		inputChan <-url
 	}
 	close(inputChan)
+	util.GetLogger().Infoln(len(inputChan))
 	var wg sync.WaitGroup
 	wg.Add(len(inputChan))
 	for i := 0; i < runtime.NumCPU(); i++ {
@@ -310,7 +315,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 			go func() {
 				var userID int
 				var isDeleted int
-				row := statement.QueryRowContext(ctx, u)
+				row := statement.QueryRow(u)
 				row.Scan(&userID, &isDeleted)
 				if int64(userID) == ctx.Value(domain.Key("id")).(int64) {
 					shortURLsChan <-u
@@ -318,8 +323,8 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 				}
 				wg.Done()
 				if time.Since(begin) > time.Second*30 {
-				util.GetLogger().Infoln("зависло1")
-			}
+					util.GetLogger().Infoln("зависло1")
+				}
 			}()
 		}
 	}
@@ -327,13 +332,15 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 
 	tx, err := db.Begin()
     if err != nil {
+		util.GetLogger().Infoln("err3", err)
         return err
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urlshrt SET is_deleted = 1 WHERE short = ANY($1)")
+	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE short = ANY($1)")
 
 	if err != nil {
+		util.GetLogger().Infoln("err4", err)
 		return err
 	}
 
@@ -345,9 +352,10 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 		urlsToDelete = append(urlsToDelete, short)
 	}
 
-	_, err = stmt.ExecContext(ctx, urlsToDelete)
+	_, err = stmt.Exec(urlsToDelete)
 	util.GetLogger().Infoln("shrt", urlsToDelete)
 	if err != nil {
+		util.GetLogger().Infoln("err5", err)
 		return err
 	}
 
