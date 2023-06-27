@@ -302,7 +302,6 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 
 	util.GetLogger().Infoln(shortURLs)
 	for _, url := range shortURLs {
-		util.GetLogger().Infoln(url)
 		inputChan <-url
 	}
 	close(inputChan)
