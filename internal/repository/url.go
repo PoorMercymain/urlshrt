@@ -320,7 +320,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 				}
 				wg.Done()
 				if time.Since(begin) > time.Second*30 {
-				util.GetLogger().Infoln("зависло")
+				util.GetLogger().Infoln("зависло1")
 			}
 			}()
 		}
