@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"golang.org/x/sync/errgroup"
 )
 
 type url struct {
@@ -288,27 +290,38 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	}
 
 	shortURLsChan := make(chan string, len(shortURLs))
-	var wg sync.WaitGroup
-	wg.Add(len(shortURLs))
+
 	statement, err := db.PrepareContext(ctx, "SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
-	defer statement.Close()
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
+	inputChan := make(chan string, len(shortURLs))
 
-	for _, u := range shortURLs {
-		u := u
-		go func() {
-			var userID int
-			var isDeleted int
-			row := statement.QueryRowContext(ctx, u)
-			row.Scan(&userID, &isDeleted)
-			if int64(userID) == ctx.Value(domain.Key("id")).(int64) && isDeleted == 0 {
-				shortURLsChan <-u
-			}
-			wg.Done()
-		}()
+	for _, url := range shortURLs {
+		inputChan <-url
 	}
+	close(inputChan)
+	var wg sync.WaitGroup
+	wg.Add(len(inputChan))
+	for i := 0; i < runtime.NumCPU(); i++ {
+		for u := range inputChan {
+			u := u
+			go func() {
+				var userID int
+				var isDeleted int
+				row := statement.QueryRowContext(ctx, u)
+				row.Scan(&userID, &isDeleted)
+				if int64(userID) == ctx.Value(domain.Key("id")).(int64) && isDeleted == 0 {
+					shortURLsChan <-u
+					util.GetLogger().Infoln("положил", u)
+					wg.Add(1)
+				}
+				wg.Done()
+			}()
+		}
+	}
+
 
 	tx, err := db.Begin()
     if err != nil {
@@ -316,19 +329,39 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE urlshrt SET is_deleted = 1 WHERE short = $1;")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urlshrt SET is_deleted = 1 WHERE short = $1")
 
 	if err != nil {
 		return err
 	}
 
 	defer stmt.Close()
+	g := new(errgroup.Group)
 
-	_, err = stmt.ExecContext(ctx, <-shortURLsChan)
-	if err != nil {
+	g.Go(func() error {
+		for {
+			short, ok := <-shortURLsChan
+			if !ok {
+				return nil
+			}
+			_, err = stmt.ExecContext(ctx, short)
+			util.GetLogger().Infoln("shrt", short)
+
+			if err != nil {
+				wg.Done()
+				return err
+			}
+			wg.Done()
+			util.GetLogger().Infoln("l e n", len(shortURLsChan))
+			if len(shortURLsChan) == 0 {
+				return nil
+			}
+		}
+	})
+
+	if err := g.Wait(); err != nil {
 		return err
 	}
-
 	wg.Wait()
 	return tx.Commit()
 }
