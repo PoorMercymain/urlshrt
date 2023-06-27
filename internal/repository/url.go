@@ -312,7 +312,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 				var isDeleted int
 				row := statement.QueryRowContext(ctx, u)
 				row.Scan(&userID, &isDeleted)
-				if int64(userID) == ctx.Value(domain.Key("id")).(int64) && isDeleted == 0 {
+				if int64(userID) == ctx.Value(domain.Key("id")).(int64) {
 					shortURLsChan <-u
 					util.GetLogger().Infoln("положил", u)
 				}
