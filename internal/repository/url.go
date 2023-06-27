@@ -279,6 +279,7 @@ func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 }
 
 func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
+	begin := time.Now()
 	var db *sql.DB
 	var err error
 
@@ -318,6 +319,9 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 					wg.Add(1)
 				}
 				wg.Done()
+				if time.Since(begin) > time.Second*30 {
+				util.GetLogger().Infoln("зависло")
+			}
 			}()
 		}
 	}
@@ -355,6 +359,9 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 			util.GetLogger().Infoln("l e n", len(shortURLsChan))
 			if len(shortURLsChan) == 0 {
 				return nil
+			}
+			if time.Since(begin) > time.Second*30 {
+				util.GetLogger().Infoln("зависло")
 			}
 		}
 	})
