@@ -306,7 +306,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	var wg sync.WaitGroup
 	wg.Add(len(inputChan))
 	for i := 0; i < runtime.NumCPU(); i++ {
-		for u := range inputChan {
+		if u, ok := <-inputChan; ok {
 			u := u
 			go func() {
 				var userID int
