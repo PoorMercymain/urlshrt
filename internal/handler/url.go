@@ -316,13 +316,11 @@ func (h *url) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		err := h.srv.DeleteUserURLs(r.Context(), short)
-		if err != nil {
-			util.GetLogger().Infoln(err)
-			return
-		}
-	}()
+	err := h.srv.DeleteUserURLs(r.Context(), short)
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return
+	}
 
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(""))
