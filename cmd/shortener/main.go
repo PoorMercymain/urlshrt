@@ -44,6 +44,7 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 	r.Get("/ping", WrapHandler(uh.PingPg))
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLs))
 
 	return r
 }

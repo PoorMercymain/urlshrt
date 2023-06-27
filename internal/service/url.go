@@ -104,13 +104,20 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error
 		return "", err
 	}
 
-	for _, url := range *curURLsPtr.Urls {
-		util.GetLogger().Infoln(url.ShortURL)
-		if url.ShortURL == shortened {
-			return url.OriginalURL, nil
+	if deleted, err := s.repo.IsURLDeleted(ctx, shortened); !deleted {
+		if err != nil {
+			util.GetLogger().Infoln(err)
 		}
+		for _, url := range *curURLsPtr.Urls {
+			util.GetLogger().Infoln(url.ShortURL)
+			if url.ShortURL == shortened {
+				return url.OriginalURL, nil
+			}
+		}
+		return "", errors.New("no such value")
+	} else {
+		return "", domain.NewErrorDeleted(errors.New("the requested url was deleted"))
 	}
-	return "", errors.New("no such value")
 }
 
 func (s *url) CreateShortened(ctx context.Context, original string) (string, error) {
@@ -163,4 +170,9 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	util.GetLogger().Infoln(curURLsPtr.Urls)
 
 	return shortenedURL, nil
+}
+
+
+func (s *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
+	return s.repo.DeleteUserURLs(ctx, shortURLs)
 }

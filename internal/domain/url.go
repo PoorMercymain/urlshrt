@@ -12,6 +12,7 @@ type URLService interface {
 	CreateShortenedFromBatch(ctx context.Context, batch []*BatchElement) ([]BatchElementResult, error)
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
+	DeleteUserURLs(ctx context.Context, shortURLs []string) error
 }
 
 type URLRepository interface {
@@ -20,4 +21,6 @@ type URLRepository interface {
 	CreateBatch(ctx context.Context, batch []*state.URLStringJSON) error
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
+	DeleteUserURLs(ctx context.Context, shortURLs []string) error
+	IsURLDeleted(ctx context.Context, shortened string) (bool, error)
 }

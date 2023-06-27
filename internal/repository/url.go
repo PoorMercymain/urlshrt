@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -147,7 +148,7 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 
 		var pgErr *pgconn.PgError
 		id := ctx.Value(domain.Key("id")).(int64)
-		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4)", url.UUID, url.ShortURL, url.OriginalURL, id)
+		_, err = db.ExecContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4, $5)", url.UUID, url.ShortURL, url.OriginalURL, id, 0)
 		if err != nil {
 			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 				uErr := domain.NewUniqueError(err)
@@ -215,7 +216,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4, $5)")
 
 	if err != nil {
 		return err
@@ -232,7 +233,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 
 	for _, url := range batch {
 		util.GetLogger().Infoln(url.OriginalURL, url.ShortURL)
-		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL, id)
+		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL, id, 0)
 		if err != nil {
 			return err
 		}
@@ -273,4 +274,81 @@ func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 		urlsFromPg = append(urlsFromPg, u)
 	}
 	return urlsFromPg, nil
+}
+
+func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
+	var db *sql.DB
+	var err error
+
+	if r.pg != nil {
+		db, err = r.pg.GetPgPtr()
+		if err != nil {
+			return err
+		}
+	}
+
+	shortURLsChan := make(chan string, len(shortURLs))
+	var wg sync.WaitGroup
+	wg.Add(len(shortURLs))
+	statement, err := db.PrepareContext(ctx, "SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
+	defer statement.Close()
+	if err != nil {
+		return err
+	}
+
+	for _, u := range shortURLs {
+		u := u
+		go func() {
+			var userID int
+			var isDeleted int
+			row := statement.QueryRowContext(ctx, u)
+			row.Scan(&userID, &isDeleted)
+			if int64(userID) == ctx.Value(domain.Key("id")).(int64) && isDeleted == 0 {
+				shortURLsChan <-u
+			}
+			wg.Done()
+		}()
+	}
+
+	tx, err := db.Begin()
+    if err != nil {
+        return err
+    }
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, "UPDATE urlshrt SET is_deleted = 1 WHERE short = $1;")
+
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, <-shortURLsChan)
+	if err != nil {
+		return err
+	}
+
+	wg.Wait()
+	return tx.Commit()
+}
+
+func(r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
+	var db *sql.DB
+	var err error
+	var isDeleted int
+
+	if r.pg != nil {
+		db, err = r.pg.GetPgPtr()
+		if err != nil {
+			return false, err
+		}
+	}
+
+	row := db.QueryRowContext(ctx, "SELECT is_deleted FROM urlshrt WHERE short = $1", shortened)
+	row.Scan(&isDeleted)
+	if isDeleted == 0 {
+		return false, nil
+	}
+	return true, nil
 }
