@@ -9,8 +9,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
-	"sync"
 	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -290,7 +288,8 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 		}
 	}
 
-	shortURLsChan := make(chan string, len(shortURLs))
+	shortURLSlice := make([]string, 0)
+	//shortURLsChan := make(chan string, len(shortURLs))
 
 	statement, err := db.Prepare("SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
 	if err != nil {
@@ -301,19 +300,20 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	inputChan := make(chan string, len(shortURLs))
 
 	util.GetLogger().Infoln(shortURLs)
-	for _, url := range shortURLs {
-		inputChan <-url
-	}
+	//for _, url := range shortURLs {
+		//inputChan <-url
+	//}
 	close(inputChan)
 	util.GetLogger().Infoln(len(inputChan))
-	if u, ok := <-inputChan; ok {
+	for _, u := range shortURLs {
 		//u := u
 		var userID int
 		var isDeleted int
 		row := statement.QueryRow(u)
 		row.Scan(&userID, &isDeleted)
 		if int64(userID) == ctx.Value(domain.Key("id")).(int64) {
-			shortURLsChan <-u
+			shortURLSlice = append(shortURLSlice, u)
+			//shortURLsChan <-u
 			util.GetLogger().Infoln("положил", u)
 		}
 
@@ -338,14 +338,14 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	}
 
 	defer stmt.Close()
-	close(shortURLsChan)
-	urlsToDelete := make([]string, 0)
-	for short := range shortURLsChan {
-		urlsToDelete = append(urlsToDelete, short)
-	}
+	//close(shortURLsChan)
+	//urlsToDelete := make([]string, 0)
+	//for short := range shortURLSlice {
+	//	urlsToDelete = append(urlsToDelete, short)
+	//}
 
-	_, err = stmt.Exec(urlsToDelete)
-	util.GetLogger().Infoln("shrt", urlsToDelete)
+	_, err = stmt.Exec(shortURLSlice)
+	util.GetLogger().Infoln("shrt", shortURLSlice)
 	if err != nil {
 		util.GetLogger().Infoln("err5", err)
 		return err
