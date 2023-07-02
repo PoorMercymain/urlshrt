@@ -22,6 +22,6 @@ type URLRepository interface {
 	CreateBatch(ctx context.Context, batch []*state.URLStringJSON) error
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
-	DeleteUserURLs(ctx context.Context, shortURLs []string) error
+	DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error
 	IsURLDeleted(ctx context.Context, shortened string) (bool, error)
 }

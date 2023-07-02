@@ -275,7 +275,7 @@ func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 	return urlsFromPg, nil
 }
 
-func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
+func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error {
 	begin := time.Now()
 	var db *sql.DB
 	var err error
@@ -330,7 +330,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE short = ANY($1) and user_id = $2")
+	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE (short, user_id) IN (SELECT unnest($1::text[]), unnest($2::int[]))")
 
 	if err != nil {
 		util.GetLogger().Infoln("err4", err)
@@ -344,7 +344,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	//	urlsToDelete = append(urlsToDelete, short)
 	//}
 
-	_, err = stmt.Exec(shortURLs, ctx.Value(domain.Key("id")).(int64))
+	_, err = stmt.Exec(shortURLs, uid)
 	//util.GetLogger().Infoln("shrt", shortURLSlice)
 	if err != nil {
 		util.GetLogger().Infoln("err5", err)
