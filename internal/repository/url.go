@@ -371,8 +371,11 @@ func(r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
 		}
 	}
 
-	row := db.QueryRowContext(ctx, "SELECT is_deleted FROM urlshrt WHERE short = $1", shortened)
+	util.GetLogger().Infoln(shortened)
+	row := db.QueryRow("SELECT is_deleted FROM urlshrt WHERE short = $1", shortened)
+	util.GetLogger().Infoln(row.Err())
 	row.Scan(&isDeleted)
+	util.GetLogger().Infoln(isDeleted)
 	if isDeleted == 0 {
 		return false, nil
 	}

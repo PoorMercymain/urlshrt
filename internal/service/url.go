@@ -201,6 +201,9 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
 						util.GetLogger().Infoln(deleteErr)
+						time.Sleep(time.Second)
+						g, erro := s.repo.IsURLDeleted(ctx, shortURLs.URLs[0])
+						util.GetLogger().Infoln("удалил ли? вот ответ -", g, erro)
 						shortURLs.Lock()
 						shortURLs.URLs = shortURLs.URLs[:0]
 						shortURLs.uid = shortURLs.uid[:0]
