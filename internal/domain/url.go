@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"sync"
 
 	"github.com/PoorMercymain/urlshrt/internal/state"
 )
@@ -12,7 +13,7 @@ type URLService interface {
 	CreateShortenedFromBatch(ctx context.Context, batch []*BatchElement) ([]BatchElementResult, error)
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
-	DeleteUserURLs(ctx context.Context, shortURLs []string) error
+	DeleteUserURLs(ctx context.Context, short []string, shortURLsChan *MutexChanString, once *sync.Once)
 }
 
 type URLRepository interface {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -173,6 +174,52 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 }
 
 
-func (s *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
-	return s.repo.DeleteUserURLs(ctx, shortURLs)
+func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan *domain.MutexChanString, once *sync.Once) {
+	shortURLs := struct{
+		URLs []string
+		*sync.Mutex
+	}{
+		URLs: make([]string, 0),
+		Mutex: &sync.Mutex{},
+	}
+
+	var deleteErr error
+	go func() {
+		once.Do(func() {
+			for {
+				select {
+				case shrt := <-shortURLsChan.Channel:
+					shortURLs.Lock()
+					shortURLs.URLs = append(shortURLs.URLs, shrt)
+					util.GetLogger().Infoln("добавил", shrt)
+					shortURLs.Unlock()
+				default:
+					if len(shortURLs.URLs) > 0 {
+						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
+						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs)
+						util.GetLogger().Infoln(deleteErr)
+						shortURLs.Lock()
+						shortURLs.URLs = shortURLs.URLs[:0]
+						shortURLs.Unlock()
+						util.GetLogger().Infoln(len(shortURLs.URLs))
+					}
+				}
+			}
+		})
+	}()
+
+	go func() {
+		if len(short) != 0 {
+			util.GetLogger().Infoln("len short", len(short))
+			shortURLsChan.Lock()
+			for _, url := range short {
+				util.GetLogger().Infoln("туть")
+				shortURLsChan.Channel<-url
+			}
+			shortURLsChan.Unlock()
+			util.GetLogger().Infoln("пум-пум", short)
+			short = short[:0]
+			util.GetLogger().Infoln("не", short)
+		}
+	}()
 }

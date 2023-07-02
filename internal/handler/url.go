@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
@@ -287,43 +288,41 @@ func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func (h *url) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
-	short := make([]string, 0)
+func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		short := make([]string, 0)
 
-	if len(r.Header.Values("Content-Type")) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
-		if contentType == "application/json" {
-			break
-		}
-		if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
+		if len(r.Header.Values("Content-Type")) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-	}
 
-	if err := json.NewDecoder(r.Body).Decode(&short); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	util.GetLogger().Infoln("попытка удалить", short)
+		for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
+			if contentType == "application/json" {
+				break
+			}
+			if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
 
-	if len(short) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	go func() {
-		err := h.srv.DeleteUserURLs(r.Context(), short)
-		if err != nil {
-			util.GetLogger().Infoln(err)
+		if err := json.NewDecoder(r.Body).Decode(&short); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-	}()
+		util.GetLogger().Infoln("попытка удалить", short)
+		util.GetLogger().Infoln(len(short))
 
-	w.WriteHeader(http.StatusAccepted)
-	//w.Write([]byte(""))
+		if len(short) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		go func() {
+			h.srv.DeleteUserURLs(r.Context(), short, shortURLsChan, once)
+		}()
+
+		w.WriteHeader(http.StatusAccepted)
+	}
 }

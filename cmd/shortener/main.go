@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
+	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/handler"
 	"github.com/PoorMercymain/urlshrt/internal/middleware"
 	"github.com/PoorMercymain/urlshrt/internal/repository"
@@ -38,13 +40,16 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 
 	r := chi.NewRouter()
 
+	shortURLsChan := domain.NewMutexChanString(make(chan string))
+	var once sync.Once
+
 	r.Post("/", WrapHandler(uh.CreateShortened))
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
 	r.Get("/ping", WrapHandler(uh.PingPg))
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
-	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLs))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
 
 	return r
 }

@@ -288,24 +288,24 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 		}
 	}
 
-	shortURLSlice := make([]string, 0)
+	//shortURLSlice := make([]string, 0)
 	//shortURLsChan := make(chan string, len(shortURLs))
 
-	statement, err := db.Prepare("SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
+	/* statement, err := db.Prepare("SELECT user_id, is_deleted FROM urlshrt WHERE short = $1")
 	if err != nil {
 		util.GetLogger().Infoln("err2", err)
 		return err
 	}
-	defer statement.Close()
-	inputChan := make(chan string, len(shortURLs))
+	defer statement.Close() */
+	//inputChan := make(chan string, len(shortURLs))
 
 	util.GetLogger().Infoln(shortURLs)
 	//for _, url := range shortURLs {
 		//inputChan <-url
 	//}
-	close(inputChan)
-	util.GetLogger().Infoln(len(inputChan))
-	for _, u := range shortURLs {
+	//close(inputChan)
+	//util.GetLogger().Infoln(len(inputChan))
+	/*for _, u := range shortURLs {
 		//u := u
 		var userID int
 		var isDeleted int
@@ -320,7 +320,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 		if time.Since(begin) > time.Second*30 {
 			util.GetLogger().Infoln("зависло1")
 		}
-	}
+	}*/
 
 
 	tx, err := db.Begin()
@@ -330,7 +330,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
     }
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE short = ANY($1)")
+	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE short = ANY($1) and user_id = $2")
 
 	if err != nil {
 		util.GetLogger().Infoln("err4", err)
@@ -344,8 +344,8 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string) error {
 	//	urlsToDelete = append(urlsToDelete, short)
 	//}
 
-	_, err = stmt.Exec(shortURLSlice)
-	util.GetLogger().Infoln("shrt", shortURLSlice)
+	_, err = stmt.Exec(shortURLs, ctx.Value(domain.Key("id")).(int64))
+	//util.GetLogger().Infoln("shrt", shortURLSlice)
 	if err != nil {
 		util.GetLogger().Infoln("err5", err)
 		return err
