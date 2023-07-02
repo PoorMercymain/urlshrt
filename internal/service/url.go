@@ -194,11 +194,15 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 				case shrt := <-shortURLsChan.Channel:
 					shortURLs.Lock()
 					shortURLs.URLs = append(shortURLs.URLs, shrt)
-					shortURLs.uid = append(shortURLs.uid, ctx.Value(domain.Key("id")).(int64))
-					util.GetLogger().Infoln("добавил", shrt)
+					for len(shortURLsChan.Channel) > 0 {
+						shrt = <-shortURLsChan.Channel
+						shortURLs.URLs = append(shortURLs.URLs, shrt)
+						shortURLs.uid = append(shortURLs.uid, ctx.Value(domain.Key("id")).(int64))
+						util.GetLogger().Infoln("добавил", shrt)
+					}
 					shortURLs.Unlock()
 				default:
-					if len(shortURLs.URLs) == 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
+					if len(shortURLs.URLs) >= 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
 						//wg.Wait()
 						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
