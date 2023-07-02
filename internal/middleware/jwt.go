@@ -15,14 +15,18 @@ import (
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID int64
+	UserID int64 `json:"uid,omitempty"`
 }
 
 func GetUserID(tokenString string) int64 {
-    claims := &Claims{}
+    //claims := &Claims{}
+	claims := jwt.MapClaims{
+		"userid": int64(-1),
+	}
     token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
         return []byte("ultrasecretkey"), nil
     })
+	util.GetLogger().Infoln(tokenString)
     if err != nil {
 		util.GetLogger().Infoln("Couldn't parse", err)
         return -1
@@ -34,7 +38,9 @@ func GetUserID(tokenString string) int64 {
     }
 
     fmt.Println("Token is valid")
-    return claims.UserID
+	util.GetLogger().Infoln(claims["userid"])
+	uid := int64(claims["userid"].(float64))
+    return uid
 }
 
 func BuildJWTString() (string, int64, error) {
@@ -44,10 +50,11 @@ func BuildJWTString() (string, int64, error) {
 		return "", -1, err
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims {
-        RegisteredClaims: jwt.RegisteredClaims{}, //мб не надо
-        UserID: id.Int64(),
-    })
+	claims := jwt.MapClaims{
+		"userid": id,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
     tokenString, err := token.SignedString([]byte("ultrasecretkey"))
     if err != nil {
@@ -74,6 +81,7 @@ func Authorize(h http.Handler) http.HandlerFunc {
 		if !errors.Is(err, http.ErrNoCookie) {
 			//util.GetLogger().Infoln("тута")
 			hasCookie = true
+			util.GetLogger().Infoln(cookie)
 			cookieString = cookie.String()
 		} else {
 			//util.GetLogger().Infoln("тута1")
@@ -83,6 +91,8 @@ func Authorize(h http.Handler) http.HandlerFunc {
 		var jwtStr string
 
 		ctx := r.Context()
+
+		util.GetLogger().Infoln(cookieString)
 
 		if len(cookieString) > 5 {
 			//util.GetLogger().Infoln("jwt str", cookieString)
@@ -101,6 +111,8 @@ func Authorize(h http.Handler) http.HandlerFunc {
 				return
 			}
 			r.Header.Set("Cookie", "auth=" + jwtStr)
+			cookieToSend := http.Cookie{Name: "auth", Value: jwtStr}
+			http.SetCookie(w, &cookieToSend)
 			ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
 		}
 		fmt.Println("id", id)
