@@ -92,7 +92,7 @@ func Authorize(h http.Handler) http.HandlerFunc {
 
 		ctx := r.Context()
 
-		util.GetLogger().Infoln(cookieString)
+		//util.GetLogger().Infoln(cookieString)
 
 		if len(cookieString) > 5 {
 			//util.GetLogger().Infoln("jwt str", cookieString)

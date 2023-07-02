@@ -3,10 +3,15 @@ package domain
 import "sync"
 
 type MutexChanString struct {
-	Channel chan string
+	Channel chan URLWithID
 	*sync.Mutex
 }
 
-func NewMutexChanString(channel chan string) *MutexChanString {
+type URLWithID struct {
+	URL string
+	ID int64
+}
+
+func NewMutexChanString(channel chan URLWithID) *MutexChanString {
 	return &MutexChanString{Channel: channel, Mutex: &sync.Mutex{}}
 }

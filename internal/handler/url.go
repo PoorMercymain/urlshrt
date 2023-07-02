@@ -311,6 +311,12 @@ func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		shortURLWithID := make([]domain.URLWithID, 0)
+		for _, url := range short {
+			shortURLWithID = append(shortURLWithID, domain.URLWithID{URL: url, ID: r.Context().Value(domain.Key("id")).(int64)})
+		}
+
 		util.GetLogger().Infoln("попытка удалить", short)
 		util.GetLogger().Infoln(len(short))
 
@@ -320,7 +326,7 @@ func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 		}
 
 		go func() {
-			h.srv.DeleteUserURLs(r.Context(), short, shortURLsChan, once)
+			h.srv.DeleteUserURLs(r.Context(), shortURLWithID, shortURLsChan, once)
 		}()
 
 		w.WriteHeader(http.StatusAccepted)

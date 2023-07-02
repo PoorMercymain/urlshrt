@@ -174,7 +174,7 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 }
 
 
-func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan *domain.MutexChanString, once *sync.Once) {
+func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once) {
 	shortURLs := struct{
 		URLs []string
 		uid []int64
@@ -193,13 +193,13 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 				select {
 				case shrt := <-shortURLsChan.Channel:
 					shortURLs.Lock()
-					shortURLs.URLs = append(shortURLs.URLs, shrt)
-					shortURLs.uid = append(shortURLs.uid, ctx.Value(domain.Key("id")).(int64))
+					shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
+					shortURLs.uid = append(shortURLs.uid, shrt.ID)
 					for len(shortURLsChan.Channel) > 0 {
 						shrt = <-shortURLsChan.Channel
-						shortURLs.URLs = append(shortURLs.URLs, shrt)
+						shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
 						util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
-						shortURLs.uid = append(shortURLs.uid, ctx.Value(domain.Key("id")).(int64))
+						shortURLs.uid = append(shortURLs.uid, shrt.ID)
 						util.GetLogger().Infoln("добавил", shrt)
 					}
 					shortURLs.Unlock()

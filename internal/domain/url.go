@@ -13,7 +13,7 @@ type URLService interface {
 	CreateShortenedFromBatch(ctx context.Context, batch []*BatchElement) ([]BatchElementResult, error)
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
-	DeleteUserURLs(ctx context.Context, short []string, shortURLsChan *MutexChanString, once *sync.Once)
+	DeleteUserURLs(ctx context.Context, short []URLWithID, shortURLsChan *MutexChanString, once *sync.Once)
 }
 
 type URLRepository interface {

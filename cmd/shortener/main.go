@@ -40,7 +40,7 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 
 	r := chi.NewRouter()
 
-	shortURLsChan := domain.NewMutexChanString(make(chan string))
+	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
 	var once sync.Once
 
 	r.Post("/", WrapHandler(uh.CreateShortened))
