@@ -184,7 +184,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 		Mutex: &sync.Mutex{},
 	}
 
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	var deleteErr error
 	go func() {
 		once.Do(func() {
@@ -199,7 +199,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 					shortURLs.Unlock()
 				default:
 					if len(shortURLs.URLs) == 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
-						wg.Wait()
+						//wg.Wait()
 						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
 						util.GetLogger().Infoln(deleteErr)
@@ -219,7 +219,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 
 	go func() {
 		if len(short) != 0 {
-			wg.Add(1)
+			//wg.Add(1)
 			util.GetLogger().Infoln("len short", len(short))
 			shortURLsChan.Lock()
 			for _, url := range short {
@@ -230,7 +230,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []string, shortURLsChan 
 			util.GetLogger().Infoln("пум-пум", short)
 			short = short[:0]
 			util.GetLogger().Infoln("не", short)
-			wg.Done()
+			//wg.Done()
 		}
 	}()
 }
