@@ -13,20 +13,14 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-type Claims struct {
-	jwt.RegisteredClaims
-	UserID int64 `json:"uid,omitempty"`
-}
-
 func GetUserID(tokenString string) int64 {
-    //claims := &Claims{}
 	claims := jwt.MapClaims{
 		"userid": int64(-1),
 	}
     token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
         return []byte("ultrasecretkey"), nil
     })
-	util.GetLogger().Infoln(tokenString)
+
     if err != nil {
 		util.GetLogger().Infoln("Couldn't parse", err)
         return -1
@@ -79,49 +73,36 @@ func Authorize(h http.Handler) http.HandlerFunc {
 		var hasCookie bool
 		var cookieString string
 		if !errors.Is(err, http.ErrNoCookie) {
-			//util.GetLogger().Infoln("тута")
 			hasCookie = true
-			util.GetLogger().Infoln(cookie)
 			cookieString = cookie.String()
-		} else {
-			//util.GetLogger().Infoln("тута1")
-			cookieString = ""
 		}
 
 		var jwtStr string
 
 		ctx := r.Context()
 
-		//util.GetLogger().Infoln(cookieString)
-
-		if len(cookieString) > 5 {
-			//util.GetLogger().Infoln("jwt str", cookieString)
-			cookieString = cookieString[len("auth="):]
-			//util.GetLogger().Infoln("jwt str1", cookieString)
+		if len(cookieString) > len("auth=") {
+			jwtStr = cookieString[len("auth="):]
 		}
 
-		if id = GetUserID(cookieString); id == -1 || !hasCookie {
-			//создаем новую куку
-			//надо будет передавать через response в хэндлере
-			//util.GetLogger().Infoln("здеся")
-
+		if id = GetUserID(jwtStr); id == -1 || !hasCookie {
 			jwtStr, id, err = BuildJWTString()
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			r.Header.Set("Cookie", "auth=" + jwtStr)
 			cookieToSend := http.Cookie{Name: "auth", Value: jwtStr}
 			http.SetCookie(w, &cookieToSend)
 			ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
 		}
-		fmt.Println("id", id)
+
+		util.GetLogger().Infoln("id", id)
 		ctx = context.WithValue(ctx, domain.Key("id"), id)
 
-		fmt.Println(ctx.Value(domain.Key("id")).(int64))
+		util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
 
 		r = r.WithContext(ctx)
-		fmt.Println(r.Context().Value(domain.Key("id")))
+		util.GetLogger().Infoln(r.Context().Value(domain.Key("id")))
 
 		h.ServeHTTP(w, r)
 	}

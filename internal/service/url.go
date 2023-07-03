@@ -110,7 +110,6 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error
 			util.GetLogger().Infoln(err)
 		}
 		for _, url := range *curURLsPtr.Urls {
-			//util.GetLogger().Infoln(url.ShortURL)
 			if url.ShortURL == shortened {
 				return url.OriginalURL, nil
 			}
@@ -184,7 +183,6 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 		Mutex: &sync.Mutex{},
 	}
 
-	//var wg sync.WaitGroup
 	var deleteErr error
 	go func() {
 		once.Do(func() {
@@ -205,7 +203,6 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 					shortURLs.Unlock()
 				default:
 					if len(shortURLs.URLs) >= 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
-						//wg.Wait()
 						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
 						util.GetLogger().Infoln(deleteErr)
@@ -225,18 +222,13 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 
 	go func() {
 		if len(short) != 0 {
-			//wg.Add(1)
 			util.GetLogger().Infoln("len short", len(short))
 			shortURLsChan.Lock()
 			for _, url := range short {
-				util.GetLogger().Infoln("туть")
 				shortURLsChan.Channel<-url
 			}
 			shortURLsChan.Unlock()
-			util.GetLogger().Infoln("пум-пум", short)
 			short = short[:0]
-			util.GetLogger().Infoln("не", short)
-			//wg.Done()
 		}
 	}()
 }
