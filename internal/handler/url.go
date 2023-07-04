@@ -36,10 +36,11 @@ func (h *url) PingPg(w http.ResponseWriter, r *http.Request) {
 func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
 
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	orig, err := h.srv.ReadOriginal(r.Context(), shortenedURL, errChan)
 	select {
-	case <-errChan:
+	case errDeleted := <-errChan:
+		util.GetLogger().Infoln(errDeleted)
 		w.WriteHeader(http.StatusGone)
 		return
 	default:
