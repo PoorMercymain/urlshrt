@@ -35,15 +35,18 @@ func (h *url) PingPg(w http.ResponseWriter, r *http.Request) {
 
 func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
-	var deletedError *domain.ErrorDeleted
 
-	orig, err := h.srv.ReadOriginal(r.Context(), shortenedURL)
-	if err != nil && !errors.As(err, &deletedError) {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	} else if errors.As(err, &deletedError) {
+	errChan := make(chan error)
+	orig, err := h.srv.ReadOriginal(r.Context(), shortenedURL, errChan)
+	select {
+	case <-errChan:
 		w.WriteHeader(http.StatusGone)
 		return
+	default:
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 
 	w.Header().Set("Location", orig)
@@ -197,7 +200,6 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-
 func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 	UserURLs, err := h.srv.ReadUserURLs(r.Context())
 	if err != nil {
@@ -284,7 +286,7 @@ func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 
 func IsJSONContentTypeCorrect(r *http.Request) bool {
 	if len(r.Header.Values("Content-Type")) == 0 {
-			return false
+		return false
 	}
 
 	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {

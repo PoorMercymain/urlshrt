@@ -8,7 +8,7 @@ import (
 )
 
 type URLService interface {
-	ReadOriginal(ctx context.Context, shortened string) (string, error)
+	ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error)
 	CreateShortened(ctx context.Context, original string) (string, error)
 	CreateShortenedFromBatch(ctx context.Context, batch []*BatchElement) ([]BatchElementResult, error)
 	PingPg(ctx context.Context) error

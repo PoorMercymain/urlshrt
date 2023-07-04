@@ -17,24 +17,24 @@ func GetUserID(tokenString string) int64 {
 	claims := jwt.MapClaims{
 		"userid": int64(-1),
 	}
-    token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
-        return []byte("ultrasecretkey"), nil
-    })
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		return []byte("ultrasecretkey"), nil
+	})
 
-    if err != nil {
+	if err != nil {
 		util.GetLogger().Infoln("Couldn't parse", err)
-        return -1
-    }
+		return -1
+	}
 
-    if !token.Valid {
-        fmt.Println("Token is not valid")
-        return -1
-    }
+	if !token.Valid {
+		fmt.Println("Token is not valid")
+		return -1
+	}
 
-    fmt.Println("Token is valid")
+	fmt.Println("Token is valid")
 	util.GetLogger().Infoln(claims["userid"])
 	uid := int64(claims["userid"].(float64))
-    return uid
+	return uid
 }
 
 func BuildJWTString() (string, int64, error) {
@@ -50,15 +50,15 @@ func BuildJWTString() (string, int64, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-    tokenString, err := token.SignedString([]byte("ultrasecretkey"))
-    if err != nil {
+	tokenString, err := token.SignedString([]byte("ultrasecretkey"))
+	if err != nil {
 		util.GetLogger().Infoln("could not create token", err)
-        return "", -1, err
-    }
+		return "", -1, err
+	}
 
 	util.GetLogger().Infoln("id2", id)
 
-    return tokenString, id.Int64(), nil
+	return tokenString, id.Int64(), nil
 }
 
 func Authorize(h http.Handler) http.HandlerFunc {

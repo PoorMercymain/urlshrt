@@ -49,7 +49,7 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 
 	util.GetLogger().Infoln("its them", *curURLsPtr.Urls, "len", len(*curURLsPtr.Urls))
 	allShortURLs := make(map[string]bool)
-	for _, urlFromCurURLs := range (*curURLsPtr.Urls) {
+	for _, urlFromCurURLs := range *curURLsPtr.Urls {
 		allShortURLs[urlFromCurURLs.ShortURL] = true
 	}
 
@@ -63,8 +63,8 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 				batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
 				if _, shortExists := allShortURLs[batch[j].ShortenedURL]; !shortExists {
 					notYetWritten = append(notYetWritten, &(state.URLStringJSON{
-						UUID: len(*curURLsPtr.Urls)+uuidShift,
-						ShortURL: batch[j].ShortenedURL,
+						UUID:        len(*curURLsPtr.Urls) + uuidShift,
+						ShortURL:    batch[j].ShortenedURL,
 						OriginalURL: batch[j].OriginalURL,
 					}))
 					allShortURLs[batch[j].ShortenedURL] = true
@@ -99,7 +99,7 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 	return batchToReturn, nil
 }
 
-func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error) {
+func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
 		return "", err
@@ -116,7 +116,9 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error
 		}
 		return "", errors.New("no such value")
 	} else {
-		return "", domain.NewErrorDeleted(errors.New("the requested url was deleted"))
+		errDeleted := errors.New("the requested url was deleted")
+		errChan <- errDeleted
+		return "", errDeleted
 	}
 }
 
@@ -172,14 +174,13 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	return shortenedURL, nil
 }
 
-
 func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once) {
-	shortURLs := struct{
+	shortURLs := struct {
 		URLs []string
-		uid []int64
+		uid  []int64
 		*sync.Mutex
 	}{
-		URLs: make([]string, 0),
+		URLs:  make([]string, 0),
 		Mutex: &sync.Mutex{},
 	}
 
@@ -225,7 +226,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 			util.GetLogger().Infoln("len short", len(short))
 			shortURLsChan.Lock()
 			for _, url := range short {
-				shortURLsChan.Channel<-url
+				shortURLsChan.Channel <- url
 			}
 			shortURLsChan.Unlock()
 			short = short[:0]

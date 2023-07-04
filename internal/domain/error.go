@@ -12,20 +12,6 @@ func (ue *UniqueError) Error() string {
 
 func NewUniqueError(err error) error {
 	return &UniqueError{
-		Err:  err,
-	}
-}
-
-type ErrorDeleted struct {
-	Err error
-}
-
-func (ed *ErrorDeleted) Error() string {
-	return fmt.Sprintf("%v", ed.Err)
-}
-
-func NewErrorDeleted(err error) error {
-	return &ErrorDeleted{
-		Err:  err,
+		Err: err,
 	}
 }

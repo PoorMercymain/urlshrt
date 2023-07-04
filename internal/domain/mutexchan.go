@@ -9,7 +9,7 @@ type MutexChanString struct {
 
 type URLWithID struct {
 	URL string
-	ID int64
+	ID  int64
 }
 
 func NewMutexChanString(channel chan URLWithID) *MutexChanString {

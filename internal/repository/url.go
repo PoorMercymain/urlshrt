@@ -20,7 +20,7 @@ import (
 
 type url struct {
 	locationOfJSON string
-	pg *state.Postgres
+	pg             *state.Postgres
 }
 
 func NewURL(locationOfJSON string, pg *state.Postgres) *url {
@@ -29,12 +29,12 @@ func NewURL(locationOfJSON string, pg *state.Postgres) *url {
 
 func (r *url) PingPg(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
-    defer cancel()
+	defer cancel()
 	pg, err := r.pg.GetPgPtr()
 	if err != nil {
 		return err
 	}
-    err = pg.PingContext(ctx)
+	err = pg.PingContext(ctx)
 	return err
 }
 
@@ -210,9 +210,9 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 	}
 
 	tx, err := db.Begin()
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4, $5)")
@@ -241,7 +241,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 	return tx.Commit()
 }
 
-func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
+func (r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
 	var err error
 	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
@@ -275,7 +275,7 @@ func(r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 	return urlsFromPg, nil
 }
 
-func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error {
+func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error {
 	var db *sql.DB
 	var err error
 
@@ -290,10 +290,10 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64
 	util.GetLogger().Infoln(shortURLs)
 
 	tx, err := db.Begin()
-    if err != nil {
+	if err != nil {
 		util.GetLogger().Infoln("err3", err)
-        return err
-    }
+		return err
+	}
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE (short, user_id) IN (SELECT unnest($1::text[]), unnest($2::int[]))")
@@ -314,7 +314,7 @@ func(r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64
 	return tx.Commit()
 }
 
-func(r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
+func (r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
 	var db *sql.DB
 	var err error
 	var isDeleted int

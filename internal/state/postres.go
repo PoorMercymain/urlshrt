@@ -11,7 +11,7 @@ import (
 )
 
 type Postgres struct {
-	pg *sql.DB
+	pg  *sql.DB
 	dsn string
 }
 
@@ -41,13 +41,13 @@ func NewPG(DSN string) (*Postgres, error) {
 	return &Postgres{pg: pg, dsn: dsn}, err
 }
 
-func(s *Postgres) GetPgPtr() (*sql.DB, error) {
+func (s *Postgres) GetPgPtr() (*sql.DB, error) {
 	if s.pg != nil {
 		return s.pg, nil
 	}
 	return s.pg, errors.New("postgres was not initialized")
 }
 
-func(s *Postgres) GetDSN() string {
+func (s *Postgres) GetDSN() string {
 	return s.dsn
 }
