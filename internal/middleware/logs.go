@@ -50,6 +50,9 @@ func WithLogging(h http.Handler) http.HandlerFunc {
 		logRespWriter.requestData.uri = r.RequestURI
 
 		logRespWriter.requestData.method = r.Method
+		if r.Method == http.MethodDelete {
+			util.GetLogger().Infoln("delete requested", r.RequestURI)
+		}
 
 		h.ServeHTTP(&logRespWriter, r)
 

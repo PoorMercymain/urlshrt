@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
@@ -35,10 +36,18 @@ func (h *url) PingPg(w http.ResponseWriter, r *http.Request) {
 func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
 
-	orig, err := h.srv.ReadOriginal(r.Context(), shortenedURL)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	errChan := make(chan error, 1)
+	orig, err := h.srv.ReadOriginal(r.Context(), shortenedURL, errChan)
+	select {
+	case errDeleted := <-errChan:
+		util.GetLogger().Infoln(errDeleted)
+		w.WriteHeader(http.StatusGone)
 		return
+	default:
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 
 	w.Header().Set("Location", orig)
@@ -101,19 +110,9 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	var orig OriginalURL
 
-	if len(r.Header.Values("Content-Type")) == 0 {
+	if !IsJSONContentTypeCorrect(r) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
-	}
-
-	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
-		if contentType == "application/json" {
-			break
-		}
-		if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
@@ -159,19 +158,9 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 	orig := make([]*domain.BatchElement, 0)
 
-	if len(r.Header.Values("Content-Type")) == 0 {
+	if !IsJSONContentTypeCorrect(r) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
-	}
-
-	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
-		if contentType == "application/json" {
-			break
-		}
-		if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
@@ -183,9 +172,6 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	//origPtrs := make([]*domain.BatchElement, 0)
-
 
 	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), orig)
 	if err != nil {
@@ -213,4 +199,105 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(buf.Bytes())
+}
+
+func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
+	UserURLs, err := h.srv.ReadUserURLs(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if len(UserURLs) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return
+	} else {
+		http.SetCookie(w, cookie)
+	}
+
+	if unauthorized := r.Context().Value(domain.Key("unauthorized")); unauthorized != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	UserURLsOutput := make([]domain.UserOutput, 0)
+
+	addr := state.GetBaseShortAddress()
+	if addr[len(addr)-1] != '/' {
+		addr = addr + "/"
+	}
+
+	for _, usrURL := range UserURLs {
+		UserURLsOutput = append(UserURLsOutput, domain.UserOutput{ShortURL: addr + usrURL.ShortURL, OriginalURL: usrURL.OriginalURL})
+	}
+
+	var JSONBytes []byte
+	buf := bytes.NewBuffer(JSONBytes)
+
+	err = json.NewEncoder(buf).Encode(UserURLsOutput)
+	if err != nil {
+		util.GetLogger().Errorln(err)
+		return
+	}
+	w.Write(buf.Bytes())
+}
+
+func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		short := make([]string, 0)
+
+		if !IsJSONContentTypeCorrect(r) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&short); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		shortURLWithID := make([]domain.URLWithID, 0)
+		for _, url := range short {
+			shortURLWithID = append(shortURLWithID, domain.URLWithID{URL: url, ID: r.Context().Value(domain.Key("id")).(int64)})
+		}
+
+		util.GetLogger().Infoln("попытка удалить", short)
+		util.GetLogger().Infoln(len(short))
+
+		if len(short) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		go func() {
+			h.srv.DeleteUserURLs(r.Context(), shortURLWithID, shortURLsChan, once)
+		}()
+
+		w.WriteHeader(http.StatusAccepted)
+	}
+}
+
+func IsJSONContentTypeCorrect(r *http.Request) bool {
+	if len(r.Header.Values("Content-Type")) == 0 {
+		return false
+	}
+
+	for contentTypeCurrentIndex, contentType := range r.Header.Values("Content-Type") {
+		if contentType == "application/json" {
+			break
+		}
+		if contentTypeCurrentIndex == len(r.Header.Values("Content-Type"))-1 {
+			return false
+		}
+	}
+
+	return true
 }

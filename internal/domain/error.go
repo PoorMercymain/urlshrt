@@ -12,6 +12,6 @@ func (ue *UniqueError) Error() string {
 
 func NewUniqueError(err error) error {
 	return &UniqueError{
-		Err:  err,
+		Err: err,
 	}
 }

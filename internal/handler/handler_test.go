@@ -115,7 +115,7 @@ func router() chi.Router {
 }
 
 func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
-	return middleware.GzipHandle(middleware.WithLogging(h))
+	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
 }
 
 func TestRouter(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -19,6 +20,10 @@ func NewURL(repo domain.URLRepository) *url {
 	return &url{repo: repo}
 }
 
+func (s *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
+	return s.repo.ReadUserURLs(ctx)
+}
+
 func (s *url) PingPg(ctx context.Context) error {
 	err := s.repo.PingPg(ctx)
 	return err
@@ -31,8 +36,8 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 	}
 
 	var random *rand.Rand
-	if rSeed := ctx.Value("seed"); rSeed != nil {
-		random = rand.New(rand.NewSource(ctx.Value("seed").(int64)))
+	if rSeed := ctx.Value(domain.Key("seed")); rSeed != nil {
+		random = rand.New(rand.NewSource(ctx.Value(domain.Key("seed")).(int64)))
 	} else {
 		util.GetLogger().Infoln("seed not found in context, default value used")
 		random = rand.New(rand.NewSource(time.Now().Unix()))
@@ -44,7 +49,7 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 
 	util.GetLogger().Infoln("its them", *curURLsPtr.Urls, "len", len(*curURLsPtr.Urls))
 	allShortURLs := make(map[string]bool)
-	for _, urlFromCurURLs := range (*curURLsPtr.Urls) {
+	for _, urlFromCurURLs := range *curURLsPtr.Urls {
 		allShortURLs[urlFromCurURLs.ShortURL] = true
 	}
 
@@ -58,8 +63,8 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 				batch[j].ShortenedURL = util.GenerateRandomString(shrtURLReqLen, random)
 				if _, shortExists := allShortURLs[batch[j].ShortenedURL]; !shortExists {
 					notYetWritten = append(notYetWritten, &(state.URLStringJSON{
-						UUID: len(*curURLsPtr.Urls)+uuidShift,
-						ShortURL: batch[j].ShortenedURL,
+						UUID:        len(*curURLsPtr.Urls) + uuidShift,
+						ShortURL:    batch[j].ShortenedURL,
 						OriginalURL: batch[j].OriginalURL,
 					}))
 					allShortURLs[batch[j].ShortenedURL] = true
@@ -94,19 +99,27 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 	return batchToReturn, nil
 }
 
-func (s *url) ReadOriginal(ctx context.Context, shortened string) (string, error) {
+func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
 		return "", err
 	}
 
-	for _, url := range *curURLsPtr.Urls {
-		util.GetLogger().Infoln(url.ShortURL)
-		if url.ShortURL == shortened {
-			return url.OriginalURL, nil
+	if deleted, err := s.repo.IsURLDeleted(ctx, shortened); !deleted {
+		if err != nil {
+			util.GetLogger().Infoln(err)
 		}
+		for _, url := range *curURLsPtr.Urls {
+			if url.ShortURL == shortened {
+				return url.OriginalURL, nil
+			}
+		}
+		return "", errors.New("no such value")
+	} else {
+		errDeleted := errors.New("the requested url was deleted")
+		errChan<-errDeleted
+		return "", errDeleted
 	}
-	return "", errors.New("no such value")
 }
 
 func (s *url) CreateShortened(ctx context.Context, original string) (string, error) {
@@ -159,4 +172,64 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	util.GetLogger().Infoln(curURLsPtr.Urls)
 
 	return shortenedURL, nil
+}
+
+func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once) {
+	shortURLs := struct {
+		URLs []string
+		uid  []int64
+		*sync.Mutex
+	}{
+		URLs:  make([]string, 0),
+		Mutex: &sync.Mutex{},
+	}
+
+	var deleteErr error
+	go func() {
+		once.Do(func() {
+			timer := time.Now()
+			for {
+				select {
+				case shrt := <-shortURLsChan.Channel:
+					shortURLs.Lock()
+					shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
+					shortURLs.uid = append(shortURLs.uid, shrt.ID)
+					for len(shortURLsChan.Channel) > 0 {
+						shrt = <-shortURLsChan.Channel
+						shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
+						util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
+						shortURLs.uid = append(shortURLs.uid, shrt.ID)
+						util.GetLogger().Infoln("добавил", shrt)
+					}
+					shortURLs.Unlock()
+				default:
+					if len(shortURLs.URLs) >= 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
+						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
+						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
+						util.GetLogger().Infoln(deleteErr)
+						g, erro := s.repo.IsURLDeleted(ctx, shortURLs.URLs[0])
+						util.GetLogger().Infoln("удалил ли? вот ответ -", g, erro)
+						shortURLs.Lock()
+						shortURLs.URLs = shortURLs.URLs[:0]
+						shortURLs.uid = shortURLs.uid[:0]
+						shortURLs.Unlock()
+						util.GetLogger().Infoln(len(shortURLs.URLs))
+						timer = time.Now()
+					}
+				}
+			}
+		})
+	}()
+
+	go func() {
+		if len(short) != 0 {
+			util.GetLogger().Infoln("len short", len(short))
+			shortURLsChan.Lock()
+			for _, url := range short {
+				shortURLsChan.Channel <- url
+			}
+			shortURLsChan.Unlock()
+			short = short[:0]
+		}
+	}()
 }
