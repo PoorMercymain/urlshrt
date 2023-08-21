@@ -6,14 +6,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/PoorMercymain/urlshrt/internal/domain"
+	"github.com/PoorMercymain/urlshrt/internal/domain/mocks"
 	"github.com/PoorMercymain/urlshrt/internal/middleware"
 	"github.com/PoorMercymain/urlshrt/internal/repository"
 	"github.com/PoorMercymain/urlshrt/internal/service"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/go-chi/chi/v5"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -75,7 +79,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	return resp, string(respBody)
 }
 
-func router() chi.Router {
+func router( /*fmem *os.File*/ ) chi.Router {
 	r := chi.NewRouter()
 
 	urls := []state.URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
@@ -107,18 +111,23 @@ func router() chi.Router {
 	}
 	util.GetLogger().Infoln(u.Urls)
 
-	r.Post("/", WrapHandler(uh.CreateShortened))
-	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
-	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
+	r.Post("/", WrapHandler(uh.CreateShortened /*, fmem*/))
+	r.Get("/{short}", WrapHandler(uh.ReadOriginal /*, fmem*/))
+	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON /*, fmem*/))
 
 	return r
 }
 
-func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
-	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
+func WrapHandler(h http.HandlerFunc /*, fmem *os.File*/) http.HandlerFunc {
+	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h /*, fmem*/)))
 }
 
 func TestRouter(t *testing.T) {
+	/*fmem, err := os.Create(`profiles\base.pprof`)
+		if err != nil {
+	    	util.GetLogger().Infoln(err)
+	    }*/
+
 	ts := httptest.NewServer(router())
 
 	defer ts.Close()
@@ -149,4 +158,277 @@ func TestRouter(t *testing.T) {
 	re, _ = testRequest(t, ts, testTable[2].status, testTable[2].body, "POST with JSON", testTable[2].url)
 	//assert.Equal(t, testTable[2].want, postJSON)
 	re.Body.Close()
+}
+
+func benchmarkRequest(b *testing.B, ts *httptest.Server, body, method, path, contentType string) string {
+	util.GetLogger().Infoln("a")
+
+	var req *http.Request
+	var err error
+	util.GetLogger().Infoln(method)
+	if body == "" {
+		req, err = http.NewRequest(method, ts.URL+path, nil)
+	} else {
+		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
+		util.GetLogger().Infoln(req)
+	}
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return ""
+	}
+
+	util.GetLogger().Infoln(req)
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := ts.Client().Do(req)
+	util.GetLogger().Infoln(resp)
+	if err != nil && err != http.ErrUseLastResponse {
+		util.GetLogger().Infoln(err)
+		return ""
+	}
+
+	if resp.StatusCode != http.StatusNoContent {
+		defer resp.Body.Close()
+	}
+
+	var respBody []byte
+
+	if contentType != "application/json" && resp.Body != nil {
+		respBody, err = io.ReadAll(resp.Body)
+	} else if path == "/api/shorten" {
+		var short = struct {
+			Result string `json:"result"`
+		}{}
+
+		err = json.NewDecoder(resp.Body).Decode(&short)
+		respBody = []byte(short.Result)
+	} else if path == "/api/shorten/batch" {
+		var batch = []struct {
+			Correlation string `json:"correlation_id"`
+			Short       string `json:"short_url"`
+		}{}
+
+		err = json.NewDecoder(resp.Body).Decode(&batch)
+		respBody = []byte(batch[0].Correlation + " " + batch[0].Short)
+	}
+	util.GetLogger().Infoln("be")
+
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return ""
+	}
+
+	return string(respBody)
+}
+
+func benchmarkRouter(b *testing.B) chi.Router {
+	r := chi.NewRouter()
+
+	host := "http://localhost:8080"
+
+	util.InitLogger()
+
+	defer util.GetLogger().Sync()
+
+	ctrl := gomock.NewController(b)
+	defer ctrl.Finish()
+
+	ur := mocks.NewMockURLRepository(ctrl)
+
+	ur.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
+	ur.EXPECT().CreateBatch(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().IsURLDeleted(gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
+	ur.EXPECT().DeleteUserURLs(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().ReadAll(gomock.Any()).Return(make([]state.URLStringJSON, 0), nil).AnyTimes()
+	ur.EXPECT().ReadUserURLs(gomock.Any()).Return(make([]state.URLStringJSON, 0), nil).AnyTimes()
+
+	us := service.NewURL(ur)
+	uh := NewURL(us)
+
+	urlsMap := make(map[string]state.URLStringJSON)
+
+	util.GetLogger().Infoln(urlsMap)
+	state.InitCurrentURLs(&urlsMap)
+	state.InitShortAddress(host)
+
+	u, err := state.GetCurrentURLsPtr()
+	if err != nil {
+		util.GetLogger().Infoln(err)
+	}
+	util.GetLogger().Infoln(u.Urls)
+
+	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
+	var once sync.Once
+
+	r.Post("/", WrapHandler(uh.CreateShortened))
+	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
+	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
+	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
+
+	return r
+}
+
+func BenchmarkHandlers(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/", "https://ya.ru", "text/plain", http.MethodPost},
+		{"/GqKWdrE", "", "", http.MethodGet},
+		{"/api/shorten", "{\"url\":\"https://ya.ru\"}", "application/json", http.MethodPost},
+		{"/api/shorten/batch", "[{\"correlation_id\": \"тего\",\"original_url\": \"https://hh.ru\"}]", "application/json", http.MethodPost},
+		{"/api/user/urls", "", "", http.MethodGet},
+		{"/api/user/urls", "[\"GqKWdrE\"]", "application/json", http.MethodDelete},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
+}
+
+func BenchmarkShorten(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/", "https://ya.ru", "text/plain", http.MethodPost},
+		{"/", "https://practicum.yandex.ru", "text/plain", http.MethodPost},
+		{"/", "https://eda.yandex.ru", "text/plain", http.MethodPost},
+		{"/", "https://music.yandex.ru", "text/plain", http.MethodPost},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
+}
+
+func BenchmarkReadOriginal(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/GqKWdrE", "", "", http.MethodGet},
+		{"/AbCdEfG", "", "", http.MethodGet},
+		{"/Qwertyu", "", "", http.MethodGet},
+		{"/noooooo", "", "", http.MethodGet},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
+}
+
+func BenchmarkShortenJSON(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/api/shorten", "{\"url\":\"https://ya.ru\"}", "application/json", http.MethodPost},
+		{"/api/shorten", "{\"url\":\"https://practicum.yandex.ru\"}", "application/json", http.MethodPost},
+		{"/api/shorten", "{\"url\":\"https://eda.yandex.ru\"}", "application/json", http.MethodPost},
+		{"/api/shorten", "{\"url\":\"https://music.yandex.ru\"}", "application/json", http.MethodPost},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
+}
+
+func BenchmarkShortenBatch(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/api/shorten/batch", "[{\"correlation_id\": \"тего\",\"original_url\": \"https://hh.ru\"}]", "application/json", http.MethodPost},
+		{"/api/shorten/batch", "[{\"correlation_id\": \"тего1\",\"original_url\": \"https://practicum.yandex.ru\"}]", "application/json", http.MethodPost},
+		{"/api/shorten/batch", "[{\"correlation_id\": \"тего2\",\"original_url\": \"https://eda.yandex.ru\"}]", "application/json", http.MethodPost},
+		{"/api/shorten/batch", "[{\"correlation_id\": \"тего3\",\"original_url\": \"https://music.yandex.ru\"}]", "application/json", http.MethodPost},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
+}
+
+func BenchmarkReadURLs(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/api/user/urls", "", "", http.MethodGet},
+		{"/api/user/urls", "", "", http.MethodGet},
+		{"/api/user/urls", "", "", http.MethodGet},
+		{"/api/user/urls", "", "", http.MethodGet},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
+}
+
+func BenchmarkDelete(b *testing.B) {
+	ts := httptest.NewServer(benchmarkRouter(b))
+	defer ts.Close()
+
+	var testTable = []struct {
+		url         string
+		body        string
+		contentType string
+		method      string
+	}{
+		{"/api/user/urls", "[\"GqKWdrE\"]", "application/json", http.MethodDelete},
+		{"/api/user/urls", "[\"AbCdEfG\"]", "application/json", http.MethodDelete},
+		{"/api/user/urls", "[\"Qwertyu\"]", "application/json", http.MethodDelete},
+		{"/api/user/urls", "[\"noooooo\"]", "application/json", http.MethodDelete},
+	}
+
+	for i := 0; i < b.N; i++ {
+		for j := range testTable {
+			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
+		}
+	}
 }

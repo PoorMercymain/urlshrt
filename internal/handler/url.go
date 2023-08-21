@@ -156,7 +156,7 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
-	orig := make([]*domain.BatchElement, 0)
+	orig := make([]*domain.BatchElement, 0, 1)
 
 	if !IsJSONContentTypeCorrect(r) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -228,7 +228,7 @@ func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	UserURLsOutput := make([]domain.UserOutput, 0)
+	UserURLsOutput := make([]domain.UserOutput, 0, len(UserURLs))
 
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
@@ -252,7 +252,7 @@ func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 
 func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		short := make([]string, 0)
+		short := make([]string, 0, 1)
 
 		if !IsJSONContentTypeCorrect(r) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -264,7 +264,7 @@ func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 			return
 		}
 
-		shortURLWithID := make([]domain.URLWithID, 0)
+		shortURLWithID := make([]domain.URLWithID, 0, len(short))
 		for _, url := range short {
 			shortURLWithID = append(shortURLWithID, domain.URLWithID{URL: url, ID: r.Context().Value(domain.Key("id")).(int64)})
 		}

@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+
+	_ "net/http/pprof"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -18,6 +21,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 	"github.com/go-chi/chi/v5"
+	mdlwr "github.com/go-chi/chi/v5/middleware"
 )
 
 func router(pathToRepo string, pg *state.Postgres) chi.Router {
@@ -50,6 +54,7 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
 	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
+	r.Mount("/debug", mdlwr.Profiler())
 
 	return r
 }
@@ -146,9 +151,22 @@ func main() {
 	util.GetLogger().Infoln(conf)
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
-	err = http.ListenAndServe(addrToServe, r)
-	if err != nil {
-		util.GetLogger().Error(err)
-		return
-	}
+
+	c := make(chan os.Signal, 1)
+	ret := make(chan struct{}, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		ret <- struct{}{}
+	}()
+
+	go func() {
+		err = http.ListenAndServe(addrToServe, r)
+		if err != nil {
+			util.GetLogger().Error(err)
+			ret <- struct{}{}
+		}
+	}()
+
+	<-ret
 }

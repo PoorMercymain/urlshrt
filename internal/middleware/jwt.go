@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
@@ -77,22 +78,18 @@ func Authorize(h http.Handler) http.HandlerFunc {
 			cookieString = cookie.String()
 		}
 
-		var jwtStr string
-
 		ctx := r.Context()
 
-		if len(cookieString) > len("auth=") {
-			jwtStr = cookieString[len("auth="):]
-		}
+		cookieString = strings.TrimPrefix(cookieString, "auth=")
 
-		if id = GetUserID(jwtStr); id == -1 || !hasCookie {
-			jwtStr, id, err = BuildJWTString()
+		if id = GetUserID(cookieString); id == -1 || !hasCookie {
+			cookieString, id, err = BuildJWTString()
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			cookieToSend := http.Cookie{Name: "auth", Value: jwtStr}
-			http.SetCookie(w, &cookieToSend)
+
+			http.SetCookie(w, &http.Cookie{Name: "auth", Value: cookieString})
 			ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
 		}
 

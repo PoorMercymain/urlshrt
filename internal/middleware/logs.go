@@ -68,7 +68,6 @@ func WithLogging(h http.Handler) http.HandlerFunc {
 			"status", logRespWriter.responseData.status,
 			"size", logRespWriter.responseData.size,
 		)
-
 	}
 
 	return logFn

@@ -16,6 +16,7 @@ type URLService interface {
 	DeleteUserURLs(ctx context.Context, short []URLWithID, shortURLsChan *MutexChanString, once *sync.Once)
 }
 
+//go:generate mockgen -destination=mocks/repo_mock.gen.go -package=mocks . URLRepository
 type URLRepository interface {
 	ReadAll(ctx context.Context) ([]state.URLStringJSON, error)
 	Create(ctx context.Context, urls []state.URLStringJSON) (string, error)
