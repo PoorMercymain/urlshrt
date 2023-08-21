@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/PoorMercymain/urlshrt/pkg/util"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
 type Postgres struct {

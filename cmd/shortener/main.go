@@ -12,6 +12,9 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/go-chi/chi/v5"
+	mdlwr "github.com/go-chi/chi/v5/middleware"
+
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/handler"
@@ -20,8 +23,6 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/service"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/go-chi/chi/v5"
-	mdlwr "github.com/go-chi/chi/v5/middleware"
 )
 
 func router(pathToRepo string, pg *state.Postgres) chi.Router {

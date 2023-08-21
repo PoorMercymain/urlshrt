@@ -9,9 +9,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v4"
+
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 func GetUserID(tokenString string) int64 {

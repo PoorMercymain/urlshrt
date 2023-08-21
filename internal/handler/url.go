@@ -10,10 +10,11 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/go-chi/chi/v5"
 )
 
 type url struct {

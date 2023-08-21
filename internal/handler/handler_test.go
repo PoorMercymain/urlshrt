@@ -9,6 +9,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/domain/mocks"
 	"github.com/PoorMercymain/urlshrt/internal/middleware"
@@ -16,10 +21,6 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/service"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/go-chi/chi/v5"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path string) (*http.Response, string) {
