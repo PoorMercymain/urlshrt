@@ -20,7 +20,7 @@ func routerExample() chi.Router {
 	return r
 }
 
-func ExampleUrl_CreateShortened() {
+func ExampleURL_CreateShortened() {
 	ts := httptest.NewServer(routerExample())
 	defer ts.Close()
 

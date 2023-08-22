@@ -18,17 +18,17 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
-type Url struct {
+type URL struct {
 	srv domain.URLService
 }
 
 // NewURL creates object to operate handler functions.
-func NewURL(srv domain.URLService) *Url {
-	return &Url{srv: srv}
+func NewURL(srv domain.URLService) *URL {
+	return &URL{srv: srv}
 }
 
 // PingPg - handler to check connection to Postgres.
-func (h *Url) PingPg(w http.ResponseWriter, r *http.Request) {
+func (h *URL) PingPg(w http.ResponseWriter, r *http.Request) {
 	err := h.srv.PingPg(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -38,7 +38,7 @@ func (h *Url) PingPg(w http.ResponseWriter, r *http.Request) {
 }
 
 // ReadOriginal - handler to get original URL from shortened.
-func (h *Url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
+func (h *URL) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
 
 	errChan := make(chan error, 1)
@@ -60,7 +60,7 @@ func (h *Url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateShortened - handler to create short URL from original.
-func (h *Url) CreateShortened(w http.ResponseWriter, r *http.Request) {
+func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	if len(r.Header.Values("Content-Type")) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -114,7 +114,7 @@ func (h *Url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateShortenedFromJSON - handler to create short URL from original which is in JSON.
-func (h *Url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
+func (h *URL) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	var orig OriginalURL
 
 	if !IsJSONContentTypeCorrect(r) {
@@ -163,7 +163,7 @@ func (h *Url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateShortenedFromBatch - handler to create shortened URLs from batch in JSON.
-func (h *Url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
+func (h *URL) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 	orig := make([]*domain.BatchElement, 0, 1)
 
 	if !IsJSONContentTypeCorrect(r) {
@@ -210,7 +210,7 @@ func (h *Url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 // ReadUserURLs - handler to get all user's URLs.
-func (h *Url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
+func (h *URL) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 	UserURLs, err := h.srv.ReadUserURLs(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -261,7 +261,7 @@ func (h *Url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteUserURLsAdapter - adapter for closure function to mark URL as deleted.
-func (h *Url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
+func (h *URL) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		short := make([]string, 0, 1)
 

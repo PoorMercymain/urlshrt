@@ -20,7 +20,7 @@ func routerExampleReadOriginal() chi.Router {
 	return r
 }
 
-func ExampleUrl_ReadOriginal() {
+func ExampleURL_ReadOriginal() {
 	ts := httptest.NewServer(routerExampleReadOriginal())
 	defer ts.Close()
 

@@ -20,7 +20,7 @@ func routerExampleCreateShortenedFromJSON() chi.Router {
 	return r
 }
 
-func ExampleUrl_CreateShortenedFromJSON() {
+func ExampleURL_CreateShortenedFromJSON() {
 	ts := httptest.NewServer(routerExampleCreateShortenedFromJSON())
 	defer ts.Close()
 

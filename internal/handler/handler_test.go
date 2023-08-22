@@ -448,11 +448,11 @@ func BenchmarkDelete(b *testing.B) {
 }
 
 type testReporter struct {
-
 }
 
 func (tr testReporter) Errorf(format string, args ...interface{}) {
-	fmt.Errorf(format, args...)
+	err := fmt.Errorf(format, args...)
+	fmt.Println(err)
 }
 
 func (tr testReporter) Fatalf(format string, args ...interface{}) {
@@ -498,7 +498,7 @@ func GetExampleMockSrv() *mocks.MockURLService {
 	return us
 }
 
-func exampleRouter() chi.Router {
+/*func exampleRouter() chi.Router {
 	r := chi.NewRouter()
 
 	host := "http://localhost:8080"
@@ -546,7 +546,7 @@ func exampleRouter() chi.Router {
 	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
 
 	return r
-}
+}*/
 
 func exampleRequest(ts *httptest.Server, body, method, path, contentType string) (int, string) {
 	util.GetLogger().Infoln("a")

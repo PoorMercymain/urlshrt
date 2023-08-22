@@ -20,7 +20,7 @@ func routerExampleDeleteUserURLs() chi.Router {
 	return r
 }
 
-func ExampleUrl_DeleteUserURLsAdapter() {
+func ExampleURL_DeleteUserURLsAdapter() {
 	ts := httptest.NewServer(routerExampleDeleteUserURLs())
 	defer ts.Close()
 

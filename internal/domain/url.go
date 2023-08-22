@@ -8,6 +8,7 @@ import (
 )
 
 // URLService is an interface which defines what functions does an object which will operate on service layer should implement.
+//
 //go:generate mockgen -destination=mocks/srv_mock.gen.go -package=mocks . URLService
 type URLService interface {
 	ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error)
@@ -19,6 +20,7 @@ type URLService interface {
 }
 
 // URLRepository is an interface which defines what functions does an object which will operate on repository layer should implement.
+//
 //go:generate mockgen -destination=mocks/repo_mock.gen.go -package=mocks . URLRepository
 type URLRepository interface {
 	ReadAll(ctx context.Context) ([]state.URLStringJSON, error)

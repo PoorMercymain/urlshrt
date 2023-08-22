@@ -20,7 +20,7 @@ func routerExampleCreateShortenedFromBatch() chi.Router {
 	return r
 }
 
-func ExampleUrl_CreateShortenedFromBatch() {
+func ExampleURL_CreateShortenedFromBatch() {
 	ts := httptest.NewServer(routerExampleCreateShortenedFromBatch())
 	defer ts.Close()
 
