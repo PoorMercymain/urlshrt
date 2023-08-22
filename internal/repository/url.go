@@ -1,3 +1,4 @@
+// repository package contains some functions to use on database level of the app.
 package repository
 
 import (
@@ -39,6 +40,7 @@ func (r *url) PingPg(ctx context.Context) error {
 	return err
 }
 
+// ReadAll is a function which is used in another function of the app's database level. It gets all URL's data from a database.
 func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
 	var err error
@@ -94,6 +96,7 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	return urlsFromPg, nil
 }
 
+// Create is a function which saves the URL data (original, shortened...) to a database.
 func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, error) {
 	var db *sql.DB
 	var err error
@@ -166,6 +169,7 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 	return "", nil
 }
 
+// CreateBatch is a function which saves URL data to a database when original URLs were in JSON batch.
 func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) error {
 	var db *sql.DB
 	var err error

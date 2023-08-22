@@ -16,6 +16,7 @@ func (w gzipWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
+// GzipHandle is a middleware to replace reader for content from requests compressed with gzip and use gzip writer if client accepts it.
 func GzipHandle(h http.Handler) http.HandlerFunc {
 	gzipFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" && r.Header.Get("Content-Type") != "text/html" && r.Header.Get("Content-Type") != "application/x-gzip" {

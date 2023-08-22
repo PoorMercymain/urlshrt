@@ -1,5 +1,7 @@
+// config package contains some types for the app configuration.
 package config
 
+// Config type contains some of the app's configuration info.
 type Config struct {
 	HTTPAddr  AddrWithCheck
 	ShortAddr AddrWithCheck
@@ -7,6 +9,7 @@ type Config struct {
 	DSN       string
 }
 
+// AddrWithCheck is a type which represents address and adiitional variable to check if the address was set.
 type AddrWithCheck struct {
 	Addr   string
 	WasSet bool

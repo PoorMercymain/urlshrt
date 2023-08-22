@@ -2,6 +2,7 @@ package util
 
 import "math/rand"
 
+// GenerateRandomString is a function to generate string with random characters.
 func GenerateRandomString(length int, random *rand.Rand) string {
 	randStrBytes := make([]byte, length)
 	shiftToSkipSymbols := 6

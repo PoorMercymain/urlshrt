@@ -7,6 +7,8 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/state"
 )
 
+// URLService is an interface which defines what functions does an object which will operate on service layer should implement.
+//go:generate mockgen -destination=mocks/srv_mock.gen.go -package=mocks . URLService
 type URLService interface {
 	ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error)
 	CreateShortened(ctx context.Context, original string) (string, error)
@@ -16,6 +18,7 @@ type URLService interface {
 	DeleteUserURLs(ctx context.Context, short []URLWithID, shortURLsChan *MutexChanString, once *sync.Once)
 }
 
+// URLRepository is an interface which defines what functions does an object which will operate on repository layer should implement.
 //go:generate mockgen -destination=mocks/repo_mock.gen.go -package=mocks . URLRepository
 type URLRepository interface {
 	ReadAll(ctx context.Context) ([]state.URLStringJSON, error)

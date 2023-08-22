@@ -15,6 +15,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
+// GetUserID function is used to get id from JWT string.
 func GetUserID(tokenString string) int64 {
 	claims := jwt.MapClaims{
 		"userid": int64(-1),
@@ -39,6 +40,7 @@ func GetUserID(tokenString string) int64 {
 	return uid
 }
 
+// BuildJWTString is a function to generate id and create JWT string which will contain it.
 func BuildJWTString() (string, int64, error) {
 	id, err := rand.Int(rand.Reader, big.NewInt(1000))
 	if err != nil {
@@ -63,6 +65,7 @@ func BuildJWTString() (string, int64, error) {
 	return tokenString, id.Int64(), nil
 }
 
+// Authorize is a middleware which checks JWT in cookie and creates it if it does not exist or if it is not correct.
 func Authorize(h http.Handler) http.HandlerFunc {
 	jwtFn := func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("auth")

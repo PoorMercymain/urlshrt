@@ -1,3 +1,4 @@
+// service is a package which contains some functions to use on service layer of the app.
 package service
 
 import (
@@ -29,6 +30,7 @@ func (s *url) PingPg(ctx context.Context) error {
 	return err
 }
 
+// CreateShortenedFromBatch creates shorten URLs from batch elements and calls repository level to save it to database.
 func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.BatchElement) ([]domain.BatchElementResult, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
@@ -99,6 +101,7 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 	return batchToReturn, nil
 }
 
+// ReadOriginal gets original URL using shortened.
 func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
@@ -122,6 +125,7 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan e
 	}
 }
 
+// CreateShortened creates shorten URL and calls repository level to save it to database.
 func (s *url) CreateShortened(ctx context.Context, original string) (string, error) {
 	var random *rand.Rand
 	if rSeed := ctx.Value(domain.Key("seed")); rSeed != nil {

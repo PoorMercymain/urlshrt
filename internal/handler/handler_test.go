@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,6 +31,11 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	var err error
 	if body == "" {
 		req, err = http.NewRequest(method, ts.URL+path, nil)
+		util.GetLogger().Infoln(req)
+		jwt, _, err := middleware.BuildJWTString()
+		require.NoError(t, err)
+		cookie := &http.Cookie{Name: "auth", Value: jwt}
+		req.AddCookie(cookie)
 	} else if method == "POST" {
 		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	} else if method == "POST with JSON" {
@@ -51,7 +58,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 
 	if method != "GET" {
 		assert.Equal(t, code, resp.StatusCode)
-	} else {
+	} else if path != "/api/user/urls" {
 		client := &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -61,6 +68,8 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		resp, _ := client.Get(ts.URL + path)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
+	} else {
+		assert.Equal(t, code, resp.StatusCode)
 	}
 
 	var respBody []byte
@@ -115,6 +124,7 @@ func router( /*fmem *os.File*/ ) chi.Router {
 	r.Post("/", WrapHandler(uh.CreateShortened /*, fmem*/))
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal /*, fmem*/))
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON /*, fmem*/))
+	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
 
 	return r
 }
@@ -142,6 +152,7 @@ func TestRouter(t *testing.T) {
 		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
 		{"/aBcDeFg", 307, "", "https://ya.ru"},
 		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg"},
+		//{url: "/api/user/urls", status: 200, body: "", want: "[{\"short_url\": \"http://localhost:8080/aBcDeFg\",\"original_url\": \"https://ya.ru\"}]"},
 	}
 
 	re, _ := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
@@ -159,6 +170,8 @@ func TestRouter(t *testing.T) {
 	re, _ = testRequest(t, ts, testTable[2].status, testTable[2].body, "POST with JSON", testTable[2].url)
 	//assert.Equal(t, testTable[2].want, postJSON)
 	re.Body.Close()
+	//re, _ = testRequest(t, ts, testTable[3].status, testTable[3].body, "GET", testTable[3].url)
+	//re.Body.Close()
 }
 
 func benchmarkRequest(b *testing.B, ts *httptest.Server, body, method, path, contentType string) string {
@@ -432,4 +445,166 @@ func BenchmarkDelete(b *testing.B) {
 			benchmarkRequest(b, ts, testTable[j].body, testTable[j].method, testTable[j].url, testTable[j].contentType)
 		}
 	}
+}
+
+type testReporter struct {
+
+}
+
+func (tr testReporter) Errorf(format string, args ...interface{}) {
+	fmt.Errorf(format, args...)
+}
+
+func (tr testReporter) Fatalf(format string, args ...interface{}) {
+	log.Fatalf(format, args...)
+}
+
+func GetExampleMockRepo() *mocks.MockURLRepository {
+	var tr testReporter
+	ctrl := gomock.NewController(tr)
+	defer ctrl.Finish()
+
+	ur := mocks.NewMockURLRepository(ctrl)
+
+	ur.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
+	ur.EXPECT().CreateBatch(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().IsURLDeleted(gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
+	ur.EXPECT().DeleteUserURLs(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().ReadAll(gomock.Any()).Return(make([]state.URLStringJSON, 0), nil).AnyTimes()
+	ur.EXPECT().ReadUserURLs(gomock.Any()).Return(make([]state.URLStringJSON, 0), nil).AnyTimes()
+
+	return ur
+}
+
+func GetExampleMockSrv() *mocks.MockURLService {
+	var tr testReporter
+	ctrl := gomock.NewController(tr)
+	defer ctrl.Finish()
+
+	us := mocks.NewMockURLService(ctrl)
+
+	ber := make([]domain.BatchElementResult, 1)
+	ber = append(ber, domain.BatchElementResult{ID: "1", ShortenedURL: "http://localhost:8080/GqKWdrE"})
+
+	usj := make([]state.URLStringJSON, 1)
+	usj = append(usj, state.URLStringJSON{UUID: 1, ShortURL: "http://localhost:8080/GqKWdrE", OriginalURL: "https://ya.ru"})
+
+	us.EXPECT().CreateShortened(gomock.Any(), gomock.Any()).Return("GqKWdrE", nil).AnyTimes()
+	us.EXPECT().ReadOriginal(gomock.Any(), gomock.Any(), gomock.Any()).Return("https://ya.ru", nil).AnyTimes()
+	us.EXPECT().CreateShortenedFromBatch(gomock.Any(), gomock.Any()).Return(ber, nil).AnyTimes()
+	us.EXPECT().ReadUserURLs(gomock.Any()).Return(usj, nil).AnyTimes()
+	us.EXPECT().DeleteUserURLs(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+
+	return us
+}
+
+func exampleRouter() chi.Router {
+	r := chi.NewRouter()
+
+	host := "http://localhost:8080"
+
+	util.InitLogger()
+
+	defer util.GetLogger().Sync()
+
+	var tr testReporter
+	ctrl := gomock.NewController(tr)
+	defer ctrl.Finish()
+
+	ur := mocks.NewMockURLRepository(ctrl)
+
+	ur.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
+	ur.EXPECT().CreateBatch(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().IsURLDeleted(gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
+	ur.EXPECT().DeleteUserURLs(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().ReadAll(gomock.Any()).Return(make([]state.URLStringJSON, 0), nil).AnyTimes()
+	ur.EXPECT().ReadUserURLs(gomock.Any()).Return(make([]state.URLStringJSON, 0), nil).AnyTimes()
+
+	us := service.NewURL(ur)
+	uh := NewURL(us)
+
+	urlsMap := make(map[string]state.URLStringJSON)
+
+	util.GetLogger().Infoln(urlsMap)
+	state.InitCurrentURLs(&urlsMap)
+	state.InitShortAddress(host)
+
+	u, err := state.GetCurrentURLsPtr()
+	if err != nil {
+		util.GetLogger().Infoln(err)
+	}
+	util.GetLogger().Infoln(u.Urls)
+
+	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
+	var once sync.Once
+
+	r.Post("/", WrapHandler(uh.CreateShortened))
+	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
+	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
+	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
+
+	return r
+}
+
+func exampleRequest(ts *httptest.Server, body, method, path, contentType string) (int, string) {
+	util.GetLogger().Infoln("a")
+
+	var req *http.Request
+	var err error
+	util.GetLogger().Infoln(method)
+	if body == "" {
+		req, err = http.NewRequest(method, ts.URL+path, nil)
+	} else {
+		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
+		util.GetLogger().Infoln(req)
+	}
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return 0, ""
+	}
+
+	util.GetLogger().Infoln(req)
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := ts.Client().Do(req)
+	util.GetLogger().Infoln(resp)
+	if err != nil && err != http.ErrUseLastResponse {
+		util.GetLogger().Infoln(err)
+		return resp.StatusCode, ""
+	}
+
+	if resp.StatusCode != http.StatusNoContent {
+		defer resp.Body.Close()
+	}
+
+	var respBody []byte
+
+	if contentType != "application/json" && resp.Body != nil {
+		respBody, err = io.ReadAll(resp.Body)
+	} else if path == "/api/shorten" {
+		var short = struct {
+			Result string `json:"result"`
+		}{}
+
+		err = json.NewDecoder(resp.Body).Decode(&short)
+		respBody = []byte(short.Result)
+	} else if path == "/api/shorten/batch" {
+		var batch = []struct {
+			Correlation string `json:"correlation_id"`
+			Short       string `json:"short_url"`
+		}{}
+
+		err = json.NewDecoder(resp.Body).Decode(&batch)
+		respBody = []byte(batch[0].Correlation + " " + batch[0].Short)
+	}
+	util.GetLogger().Infoln("be")
+
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return resp.StatusCode, ""
+	}
+
+	return resp.StatusCode, string(respBody)
 }

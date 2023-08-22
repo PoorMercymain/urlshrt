@@ -11,6 +11,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
+// Postgres is a type which represent connection to postgres and it's DSN.
 type Postgres struct {
 	pg  *sql.DB
 	dsn string
