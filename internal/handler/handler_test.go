@@ -32,7 +32,8 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	if body == "" {
 		req, err = http.NewRequest(method, ts.URL+path, nil)
 		util.GetLogger().Infoln(req)
-		jwt, _, err := middleware.BuildJWTString()
+		var jwt string
+		jwt, _, err = middleware.BuildJWTString()
 		require.NoError(t, err)
 		cookie := &http.Cookie{Name: "auth", Value: jwt}
 		req.AddCookie(cookie)
