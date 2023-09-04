@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"net/http"
@@ -118,7 +119,8 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Println(pg)
-		pgPtr, err := pg.GetPgPtr()
+		var pgPtr *sql.DB
+		pgPtr, err = pg.GetPgPtr()
 		if err != nil {
 			fmt.Println(err)
 		}

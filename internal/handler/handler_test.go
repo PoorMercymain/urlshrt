@@ -65,7 +65,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 			},
 		}
 
-		resp, _ := client.Get(ts.URL + path)
+		resp, _ = client.Get(ts.URL + path)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	} else {

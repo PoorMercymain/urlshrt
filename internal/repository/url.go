@@ -43,8 +43,8 @@ func (r *url) PingPg(ctx context.Context) error {
 // ReadAll is a function which is used in another function of the app's database level. It gets all URL's data from a database.
 func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
-	var err error
-	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
+	var errOuter error
+	if db, errOuter = r.pg.GetPgPtr(); errOuter != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
 		f, err := os.Open(r.locationOfJSON)
 		if err != nil {
 			return nil, err
@@ -75,9 +75,10 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 
 		return jsonSlice, nil
 	}
-	rows, err := db.QueryContext(ctx, "SELECT uuid, short, original FROM urlshrt")
-	if err != nil {
-		return nil, err
+
+	rows, errOuter := db.QueryContext(ctx, "SELECT uuid, short, original FROM urlshrt")
+	if errOuter != nil {
+		return nil, errOuter
 	}
 	defer rows.Close()
 	if rows.Err() != nil {
@@ -87,9 +88,9 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	for rows.Next() {
 		var u state.URLStringJSON
 
-		err = rows.Scan(&u.UUID, &u.ShortURL, &u.OriginalURL)
-		if err != nil {
-			return nil, err
+		errOuter = rows.Scan(&u.UUID, &u.ShortURL, &u.OriginalURL)
+		if errOuter != nil {
+			return nil, errOuter
 		}
 		urlsFromPg = append(urlsFromPg, u)
 	}
@@ -100,31 +101,33 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, error) {
 	var db *sql.DB
 	var err error
+	var f *os.File
 
 	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
 		if r.locationOfJSON == "" {
 			return "", nil
 		}
-		err := os.MkdirAll(filepath.Dir(r.locationOfJSON), 0600)
+		err = os.MkdirAll(filepath.Dir(r.locationOfJSON), 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save mkdir", err)
 			return "", err
 		}
 
-		f, err := os.OpenFile(r.locationOfJSON, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		f, err = os.OpenFile(r.locationOfJSON, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save", err)
 			return "", err
 		}
 
 		defer func() error {
-			if err := f.Close(); err != nil {
+			if err = f.Close(); err != nil {
 				return err
 			}
 			return nil
 		}()
 
-		urlsFromFile, err := r.ReadAll(ctx)
+		var urlsFromFile []state.URLStringJSON
+		urlsFromFile, err = r.ReadAll(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -135,7 +138,8 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 
 		for _, str := range urls {
 			if _, ok := urlsFromFileMap[str.OriginalURL]; !ok {
-				jsonByteSlice, err := json.Marshal(str)
+				var jsonByteSlice []byte
+				jsonByteSlice, err = json.Marshal(str)
 				if err != nil {
 					return "", err
 				}
@@ -182,27 +186,29 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 		if r.locationOfJSON == "" {
 			return nil
 		}
-		err := os.MkdirAll(filepath.Dir(r.locationOfJSON), 0600)
+		err = os.MkdirAll(filepath.Dir(r.locationOfJSON), 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save mkdir", err)
 			return err
 		}
 
-		f, err := os.OpenFile(r.locationOfJSON, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		var f *os.File
+		f, err = os.OpenFile(r.locationOfJSON, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			util.GetLogger().Infoln("save", err)
 			return err
 		}
 
 		defer func() error {
-			if err := f.Close(); err != nil {
+			if err = f.Close(); err != nil {
 				return err
 			}
 			return nil
 		}()
 
 		for _, str := range batch {
-			jsonByteSlice, err := json.Marshal(str)
+			var jsonByteSlice []byte
+			jsonByteSlice, err = json.Marshal(str)
 			if err != nil {
 				return err
 			}
