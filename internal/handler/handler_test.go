@@ -31,6 +31,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	var err error
 	if body == "" {
 		req, err = http.NewRequest(method, ts.URL+path, nil)
+		require.NoError(t, err)
 		util.GetLogger().Infoln(req)
 		var jwt string
 		jwt, _, err = middleware.BuildJWTString()
