@@ -26,6 +26,10 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
+var (
+	buildVersion, buildDate, buildCommit string
+)
+
 func router(pathToRepo string, pg *state.Postgres) chi.Router {
 	ur := repository.NewURL(pathToRepo, pg)
 	us := service.NewURL(ur)
@@ -66,6 +70,24 @@ func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
+	if buildVersion != "" {
+		fmt.Println("Build version:", buildVersion)
+	} else {
+		fmt.Println("Build version: N/A")
+	}
+
+	if buildDate != "" {
+		fmt.Println("Build date:", buildDate)
+	} else {
+		fmt.Println("Build date: N/A")
+	}
+
+	if buildCommit != "" {
+		fmt.Println("Build commit:", buildCommit)
+	} else {
+		fmt.Println("Build commit: N/A")
+	}
+
 	var conf config.Config
 
 	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")

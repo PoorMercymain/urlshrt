@@ -2,10 +2,10 @@ package main
 
 import (
 	"go/ast"
+
 	"golang.org/x/tools/go/analysis"
 )
 
-// 
 var OsExitAnalyzer = &analysis.Analyzer{
 	Name: "osexitanalyzer",
 	Doc:  "check for os.Exit usage in main func of package main",

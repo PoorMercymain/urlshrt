@@ -20,6 +20,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/defers"
 	"golang.org/x/tools/go/analysis/passes/directive"
 	"golang.org/x/tools/go/analysis/passes/errorsas"
+
 	//"golang.org/x/tools/go/analysis/passes/fieldalignment"
 	"golang.org/x/tools/go/analysis/passes/findcall"
 	"golang.org/x/tools/go/analysis/passes/framepointer"
@@ -54,14 +55,14 @@ import (
 )
 
 func main() {
-    checks := map[string]bool{
-        "SA": true,
+	checks := map[string]bool{
+		"SA":    true,
 		"S1020": true,
-    }
+	}
 
-    mychecks := []*analysis.Analyzer{
-        OsExitAnalyzer,
-        asmdecl.Analyzer,
+	mychecks := []*analysis.Analyzer{
+		OsExitAnalyzer,
+		asmdecl.Analyzer,
 		assign.Analyzer,
 		atomic.Analyzer,
 		atomicalign.Analyzer,
@@ -106,17 +107,17 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
-        faillint.NewAnalyzer(),
-        errwrap.Analyzer,
-    }
+		faillint.NewAnalyzer(),
+		errwrap.Analyzer,
+	}
 
-    for _, v := range staticcheck.Analyzers {
-        if checks[v.Analyzer.Name] {
-            mychecks = append(mychecks, v.Analyzer)
-        }
-    }
+	for _, v := range staticcheck.Analyzers {
+		if checks[v.Analyzer.Name] {
+			mychecks = append(mychecks, v.Analyzer)
+		}
+	}
 
-    multichecker.Main(
-        mychecks...,
-    )
+	multichecker.Main(
+		mychecks...,
+	)
 }
