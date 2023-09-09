@@ -27,6 +27,7 @@ func (s *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 
 func (s *url) PingPg(ctx context.Context) error {
 	err := s.repo.PingPg(ctx)
+	util.GetLogger().Infoln("~~~", err, "~~~")
 	return err
 }
 

@@ -17,4 +17,8 @@ func TestGenerateRandomString(t *testing.T) {
 
 	dsn := pg.GetDSN()
 	require.Empty(t, dsn)
+
+	pg, err = NewPG("abc")
+	require.Error(t, err)
+	require.Empty(t, pg)
 }

@@ -60,7 +60,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 
 	if method != "GET" {
 		assert.Equal(t, code, resp.StatusCode)
-	} else if path != "/api/user/urls" {
+	} else if path != "/api/user/urls" && path != "/ping" {
 		client := &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -91,7 +91,14 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	return resp, string(respBody)
 }
 
-func router( /*fmem *os.File*/ ) chi.Router {
+func router(t *testing.T) chi.Router {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ur := mocks.NewMockURLRepository(ctrl)
+
+	ur.EXPECT().PingPg(gomock.Any()).Return(nil).AnyTimes()
+
 	r := chi.NewRouter()
 
 	urls := []state.URLStringJSON{{UUID: 1, ShortURL: "aBcDeFg", OriginalURL: "https://ya.ru"}}
@@ -104,9 +111,11 @@ func router( /*fmem *os.File*/ ) chi.Router {
 
 	pg := &state.Postgres{}
 
-	ur := repository.NewURL("", pg)
+	ure := repository.NewURL("", pg)
 	us := service.NewURL(ur)
+	use := service.NewURL(ure)
 	uh := NewURL(us)
+	uha := NewURL(use)
 
 	urlsMap := make(map[string]state.URLStringJSON)
 	for _, u := range urls {
@@ -123,10 +132,11 @@ func router( /*fmem *os.File*/ ) chi.Router {
 	}
 	util.GetLogger().Infoln(u.Urls)
 
-	r.Post("/", WrapHandler(uh.CreateShortened /*, fmem*/))
-	r.Get("/{short}", WrapHandler(uh.ReadOriginal /*, fmem*/))
-	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON /*, fmem*/))
-	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
+	r.Get("/ping", WrapHandler(uh.PingPg))
+	r.Post("/", WrapHandler(uha.CreateShortened /*, fmem*/))
+	r.Get("/{short}", WrapHandler(uha.ReadOriginal /*, fmem*/))
+	r.Post("/api/shorten", WrapHandler(uha.CreateShortenedFromJSON /*, fmem*/))
+	r.Get("/api/user/urls", WrapHandler(uha.ReadUserURLs))
 
 	return r
 }
@@ -140,8 +150,7 @@ func TestRouter(t *testing.T) {
 		if err != nil {
 	    	util.GetLogger().Infoln(err)
 	    }*/
-
-	ts := httptest.NewServer(router())
+	ts := httptest.NewServer(router(t))
 
 	defer ts.Close()
 
@@ -154,7 +163,7 @@ func TestRouter(t *testing.T) {
 		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
 		{"/aBcDeFg", 307, "", "https://ya.ru"},
 		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg"},
-		//{url: "/api/user/urls", status: 200, body: "", want: "[{\"short_url\": \"http://localhost:8080/aBcDeFg\",\"original_url\": \"https://ya.ru\"}]"},
+		{url: "/ping", status: 200, body: "", want: ""},
 	}
 
 	re, _ := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
@@ -172,8 +181,8 @@ func TestRouter(t *testing.T) {
 	re, _ = testRequest(t, ts, testTable[2].status, testTable[2].body, "POST with JSON", testTable[2].url)
 	//assert.Equal(t, testTable[2].want, postJSON)
 	re.Body.Close()
-	//re, _ = testRequest(t, ts, testTable[3].status, testTable[3].body, "GET", testTable[3].url)
-	//re.Body.Close()
+	re, _ = testRequest(t, ts, testTable[3].status, testTable[3].body, "GET", testTable[3].url)
+	re.Body.Close()
 }
 
 func benchmarkRequest(b *testing.B, ts *httptest.Server, body, method, path, contentType string) string {

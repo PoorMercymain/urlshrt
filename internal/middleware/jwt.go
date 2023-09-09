@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"math/big"
 	"net/http"
 	"strings"
@@ -30,11 +29,11 @@ func GetUserID(tokenString string) int64 {
 	}
 
 	if !token.Valid {
-		fmt.Println("Token is not valid")
+		util.GetLogger().Infoln("Token is not valid")
 		return -1
 	}
 
-	fmt.Println("Token is valid")
+	util.GetLogger().Infoln("Token is valid")
 	util.GetLogger().Infoln(claims["userid"])
 	uid := int64(claims["userid"].(float64))
 	return uid
