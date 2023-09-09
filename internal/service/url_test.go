@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/PoorMercymain/urlshrt/internal/domain/mocks"
-	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/PoorMercymain/urlshrt/internal/domain/mocks"
+	"github.com/PoorMercymain/urlshrt/internal/state"
 )
 
 func TestReadUserURLs(t *testing.T) {
