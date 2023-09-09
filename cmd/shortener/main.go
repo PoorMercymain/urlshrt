@@ -71,9 +71,9 @@ func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
 
 func printGlobalVariable(variable string, shortDescription string) {
 	if variable != "" {
-		fmt.Println("Build", shortDescription + ":", variable)
+		fmt.Println("Build", shortDescription+":", variable)
 	} else {
-		fmt.Println("Build", shortDescription + ": N/A")
+		fmt.Println("Build", shortDescription+": N/A")
 	}
 }
 

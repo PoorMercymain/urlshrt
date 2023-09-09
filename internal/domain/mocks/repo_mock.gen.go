@@ -8,8 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	state "github.com/PoorMercymain/urlshrt/internal/state"
 	gomock "github.com/golang/mock/gomock"
+
+	state "github.com/PoorMercymain/urlshrt/internal/state"
 )
 
 // MockURLRepository is a mock of URLRepository interface.
