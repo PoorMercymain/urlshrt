@@ -177,6 +177,7 @@ func TestRouter(t *testing.T) {
 		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: "text/plain"},
 		{"/", 201, "https://mail.ru", "", ""},
 		{url: "/ping", status: 500, body: "", want: "", mime: ""},
+		{url: "/api/shorten", status: 400, body: "\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
 	}
 
 	util.GetLogger().Infoln(0)
@@ -212,6 +213,9 @@ func TestRouter(t *testing.T) {
 	re.Body.Close()
 
 	re, _ = testRequest(t, ts, testTable[7].status, testTable[7].body, "GET", testTable[7].url, testTable[7].mime)
+	re.Body.Close()
+
+	re, _ = testRequest(t, ts, testTable[8].status, testTable[8].body, "POST", testTable[8].url, testTable[8].mime)
 	re.Body.Close()
 }
 
