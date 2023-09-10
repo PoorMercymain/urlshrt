@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -49,6 +50,10 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		req.Header.Set("Content-Type", "application/json")
 	} else if mime != "" {
 		req.Header.Set("Content-Type", mime)
+	}
+
+	if body == "https://mail.ru" {
+		req.Header.Set("RandSeed", "123")
 	}
 
 	require.NoError(t, err)
@@ -99,7 +104,8 @@ func router(t *testing.T) chi.Router {
 
 	ur := mocks.NewMockURLRepository(ctrl)
 
-	ur.EXPECT().PingPg(gomock.Any()).Return(nil).AnyTimes()
+	ur.EXPECT().PingPg(gomock.Any()).Return(nil).MaxTimes(1)
+	ur.EXPECT().PingPg(gomock.Any()).Return(errors.New("test")).AnyTimes()
 
 	r := chi.NewRouter()
 
@@ -169,6 +175,8 @@ func TestRouter(t *testing.T) {
 		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
 		{url: "/ping", status: 200, body: "", want: "", mime: ""},
 		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: "text/plain"},
+		{"/", 201, "https://mail.ru", "", ""},
+		{url: "/ping", status: 500, body: "", want: "", mime: ""},
 	}
 
 	util.GetLogger().Infoln(0)
@@ -198,6 +206,12 @@ func TestRouter(t *testing.T) {
 	re.Body.Close()
 
 	re, _ = testRequest(t, ts, testTable[5].status, testTable[5].body, "POST", testTable[5].url, testTable[5].mime)
+	re.Body.Close()
+
+	re, _ = testRequest(t, ts, testTable[6].status, testTable[6].body, "POST", testTable[6].url, testTable[6].mime)
+	re.Body.Close()
+
+	re, _ = testRequest(t, ts, testTable[7].status, testTable[7].body, "GET", testTable[7].url, testTable[7].mime)
 	re.Body.Close()
 }
 
