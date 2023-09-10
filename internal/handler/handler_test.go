@@ -25,7 +25,7 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
-func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path string) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path, mime string) (*http.Response, string) {
 
 	var req *http.Request
 	var err error
@@ -43,10 +43,12 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	} else if method == "POST with JSON" {
 		req, err = http.NewRequest("POST", ts.URL+path, strings.NewReader(body))
 	}
-	if method == "POST" {
+	if method == "POST" && mime == "" {
 		req.Header.Set("Content-Type", "text/plain")
-	} else if method == "POST with JSON" {
+	} else if method == "POST with JSON" && mime == "" {
 		req.Header.Set("Content-Type", "application/json")
+	} else if mime != "" {
+		req.Header.Set("Content-Type", mime)
 	}
 
 	require.NoError(t, err)
@@ -159,14 +161,18 @@ func TestRouter(t *testing.T) {
 		status int
 		body   string
 		want   string
+		mime   string
 	}{
-		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg"},
-		{"/aBcDeFg", 307, "", "https://ya.ru"},
-		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg"},
-		{url: "/ping", status: 200, body: "", want: ""},
+		{"/", 400, "https://ya.ru", "http://localhost:8080/aBcDeFg", "application/json"},
+		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg", ""},
+		{"/aBcDeFg", 307, "", "https://ya.ru", ""},
+		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
+		{url: "/ping", status: 200, body: "", want: "", mime: ""},
+		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: "text/plain"},
 	}
 
-	re, _ := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url)
+	util.GetLogger().Infoln(0)
+	re, _ := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url, testTable[0].mime)
 	//assert.Equal(t, testTable[0].want, post)
 	re.Body.Close()
 
@@ -176,12 +182,22 @@ func TestRouter(t *testing.T) {
 	}
 
 	util.GetLogger().Infoln(u.Urls)
-	re, _ = testRequest(t, ts, testTable[1].status, testTable[1].body, "GET", testTable[1].url)
+
+	re, _ = testRequest(t, ts, testTable[1].status, testTable[1].body, "POST", testTable[1].url, testTable[1].mime)
 	re.Body.Close()
-	re, _ = testRequest(t, ts, testTable[2].status, testTable[2].body, "POST with JSON", testTable[2].url)
+
+	util.GetLogger().Infoln(1)
+	re, _ = testRequest(t, ts, testTable[2].status, testTable[2].body, "GET", testTable[2].url, testTable[2].mime)
+	re.Body.Close()
+	util.GetLogger().Infoln(2)
+	re, _ = testRequest(t, ts, testTable[3].status, testTable[3].body, "POST with JSON", testTable[3].url, testTable[3].mime)
 	//assert.Equal(t, testTable[2].want, postJSON)
 	re.Body.Close()
-	re, _ = testRequest(t, ts, testTable[3].status, testTable[3].body, "GET", testTable[3].url)
+	util.GetLogger().Infoln(3)
+	re, _ = testRequest(t, ts, testTable[4].status, testTable[4].body, "GET", testTable[4].url, testTable[4].mime)
+	re.Body.Close()
+
+	re, _ = testRequest(t, ts, testTable[5].status, testTable[5].body, "POST", testTable[5].url, testTable[5].mime)
 	re.Body.Close()
 }
 
