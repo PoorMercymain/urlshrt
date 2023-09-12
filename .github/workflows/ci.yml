@@ -31,12 +31,13 @@ jobs:
             - name: Run coverage
               id: cov
               if: always()
-              run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
-                   if [ $? -eq 0 ]; then
+              run: |
+                  go test ./... -race -coverprofile=coverage.out -covermode=atomic
+                  if [ $? -eq 0 ]; then
                     echo "::set-output name=status::success"
-                   else
+                  else
                     echo "::set-output name=status::failure"
-                   fi
+                  fi
 
             - name: Upload coverage to Codecov
               if: steps.cov.outputs.status == 'success'
