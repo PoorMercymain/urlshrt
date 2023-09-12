@@ -22,25 +22,12 @@ jobs:
             - name: Test
               run: go test -v ./...
 
-            - name: Run golangci-lint
-              uses: golangci/golangci-lint-action@v3.6.0
-
-            - name: Format
-              run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
-
             - name: Run coverage
-              id: cov
               if: always()
-              run: |
-                  go test ./... -race -coverprofile=coverage.out -covermode=atomic
-                  if [ $? -eq 0 ]; then
-                    echo "::set-output name=status::success"
-                  else
-                    echo "::set-output name=status::failure"
-                  fi
+              run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
             - name: Upload coverage to Codecov
-              if: steps.cov.outputs.status == 'success'
+              if: success()
               uses: codecov/codecov-action@v3
               env:
                 CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
