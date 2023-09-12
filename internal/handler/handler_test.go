@@ -164,18 +164,18 @@ func TestRouter(t *testing.T) {
 
 	var testTable = []struct {
 		url    string
-		status int
 		body   string
 		want   string
 		mime   string
+		status int
 	}{
-		{"/", 400, "https://ya.ru", "http://localhost:8080/aBcDeFg", "application/json"},
-		{"/", 201, "https://ya.ru", "http://localhost:8080/aBcDeFg", ""},
-		{"/aBcDeFg", 307, "", "https://ya.ru", ""},
+		{"/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "application/json", 400},
+		{"/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "", 201},
+		{"/aBcDeFg", "", "https://ya.ru", "", 307},
 		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
 		{url: "/ping", status: 200, body: "", want: "", mime: ""},
 		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: "text/plain"},
-		{"/", 201, "https://mail.ru", "", ""},
+		{"/", "https://mail.ru", "", "", 201},
 		{url: "/ping", status: 500, body: "", want: "", mime: ""},
 		{url: "/api/shorten", status: 400, body: "\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
 	}

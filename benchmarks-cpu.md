@@ -1,0 +1,23 @@
+     328	   3606697 ns/op
+     285	   3994632 ns/op
+     280	   4317576 ns/op
+     538	   2085079 ns/op
+     552	   2012744 ns/op
+     532	   2096938 ns/op
+     894	   1279685 ns/op
+     861	   1262666 ns/op
+     950	   1271235 ns/op
+     352	   3117827 ns/op
+     351	   3271955 ns/op
+     340	   3245492 ns/op
+     349	   3238287 ns/op
+     349	   3348682 ns/op
+     345	   3647812 ns/op
+     820	   1325415 ns/op
+     811	   1399107 ns/op
+     901	   1324342 ns/op
+     284	   4022077 ns/op
+     278	   4280412 ns/op
+     237	   4962707 ns/op
+PASS
+ok  	github.com/PoorMercymain/urlshrt/internal/handler	35.032s

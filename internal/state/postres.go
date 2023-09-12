@@ -13,8 +13,8 @@ import (
 
 // Postgres is a type which represent connection to postgres and it's DSN.
 type Postgres struct {
-	pg  *sql.DB
 	dsn string
+	pg  *sql.DB
 }
 
 func NewPG(DSN string) (*Postgres, error) {

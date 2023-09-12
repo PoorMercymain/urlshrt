@@ -27,3 +27,6 @@ urlshrt/
 
 # JSON file to save URLs without Postgres
 tmp/
+
+# Benchmark data
+benchmarks/*

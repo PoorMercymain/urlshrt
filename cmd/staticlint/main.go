@@ -77,7 +77,7 @@ func main() {
 		defers.Analyzer,
 		directive.Analyzer,
 		errorsas.Analyzer,
-		//fieldalignment.Analyzer, it tells that my structs can use a little bit less memory, but doesn't tell me how to fix it, so I haven't include it
+		//fieldalignment.Analyzer, // it tells that my structs can use a little bit less memory, but doesn't tell me how to fix it, so I haven't include it
 		findcall.Analyzer,
 		framepointer.Analyzer,
 		httpresponse.Analyzer,
