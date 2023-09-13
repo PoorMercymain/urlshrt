@@ -14,6 +14,7 @@
 # Binaries
 cmd/shortener/main
 cmd/shortener/shortener
+cmd/shortener/bin
 
 # Dependency directories (remove the comment below to include it)
 vendor/
@@ -21,3 +22,12 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+# Postgres data
+urlshrt/
+
+# JSON file to save URLs without Postgres
+tmp/
+
+# Benchmark data
+benchmarks/*
