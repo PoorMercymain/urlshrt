@@ -105,8 +105,6 @@ func main() {
 		flag.Parse()
 	}
 
-	fmt.Println(len(os.Args))
-
 	conf.JSONFile = *buf
 	conf.DSN = *dsnBuf
 
