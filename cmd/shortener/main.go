@@ -196,6 +196,7 @@ func main() {
 	}
 
 	util.GetLogger().Infoln(conf)
+	
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
 	addrToServe = strings.TrimPrefix(addrToServe, "https://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
