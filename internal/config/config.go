@@ -3,10 +3,11 @@ package config
 
 // Config type contains some of the app's configuration info.
 type Config struct {
-	JSONFile  string
-	DSN       string
-	HTTPAddr  AddrWithCheck
-	ShortAddr AddrWithCheck
+	JSONFile     string
+	DSN          string
+	HTTPAddr     AddrWithCheck
+	ShortAddr    AddrWithCheck
+	HTTPSEnabled string // not being used right now, just a string var in main used instead
 }
 
 // AddrWithCheck is a type which represents address and adiitional variable to check if the address was set.

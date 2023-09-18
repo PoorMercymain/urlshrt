@@ -36,7 +36,7 @@ shortener: $(BIN_DIR)
 	go mod download
 	go build -o $(BIN_DIR)/urlshrt ./cmd/shortener/
 	docker-compose up -d
-	$(SHORTENER_PATH) -d "host=localhost dbname=urlshrt user=urlshrt password=urlshrt port=3000 sslmode=disable"
+	$(SHORTENER_PATH) -d "host=localhost dbname=urlshrt user=urlshrt password=urlshrt port=3000 sslmode=disable" -c config.json
 
 shortener-secure: $(BIN_DIR)
 	openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout cert/localhost.key -out cert/localhost.crt -subj "/C=RU/ST=Moscow/L=Moscow/O=Localhost/OU=Dev/CN=localhost"

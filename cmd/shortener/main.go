@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -95,6 +97,7 @@ func main() {
 
 	var buf *string
 	var httpsRequired *string
+	var confFilePath *string
 
 	flag.Var(&conf.HTTPAddr, "a", "http server address")
 
@@ -105,6 +108,8 @@ func main() {
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
 	httpsRequired = flag.String("s", "", "turn https on")
+
+	confFilePath = flag.String("c", "", "config file path")
 
 	if !httpSet || !shortSet || !jsonFileSet || !dsnSet || !secureSet {
 		flag.Parse()
@@ -133,6 +138,71 @@ func main() {
 		httpsRequired = &secureEnv
 	}
 
+	var rawConfig struct {
+		JSONFile     string `json:"file_storage_path,omitempty"`
+		DSN          string `json:"database_dsn,omitempty"`
+		HTTPAddr     string `json:"server_address,omitempty"`
+		ShortAddr    string `json:"base_url,omitempty"`
+		HTTPSEnabled string `json:"enable_https,omitempty"`
+	}
+
+	if *confFilePath != "" {
+		file, err := os.Open("config.json")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		var content string
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			content += scanner.Text()
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Println("Error reading file:", err)
+			return
+		}
+
+		err = json.Unmarshal([]byte(content), &rawConfig)
+		if err != nil {
+			fmt.Println("Error unmarshalling JSON:", err)
+			return
+		}
+
+		if conf.HTTPAddr.Addr == "" {
+			set := true
+			if rawConfig.HTTPAddr == "" {
+				set = false
+			}
+
+			fmt.Println("=====", set)
+			conf.HTTPAddr = config.AddrWithCheck{Addr: rawConfig.HTTPAddr, WasSet: set}
+		}
+
+		if conf.ShortAddr.Addr == "" {
+			set := true
+			if rawConfig.ShortAddr == "" {
+				set = false
+			}
+
+			conf.ShortAddr = config.AddrWithCheck{Addr: rawConfig.ShortAddr, WasSet: set}
+		}
+
+		if conf.JSONFile == "" {
+			conf.JSONFile = rawConfig.JSONFile
+		}
+
+		if conf.DSN == "" {
+			conf.DSN = rawConfig.DSN
+		}
+
+		if *httpsRequired == "" {
+			*httpsRequired = rawConfig.HTTPSEnabled
+		}
+	}
+
 	pg := &state.Postgres{}
 	var err error
 
@@ -157,6 +227,7 @@ func main() {
 		defAddr = "http" + defAddr + "8080/"
 	}
 
+	fmt.Println("------- ", conf.ShortAddr, conf.HTTPAddr)
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: defAddr, WasSet: true}
 		conf.HTTPAddr = conf.ShortAddr
@@ -165,6 +236,8 @@ func main() {
 	} else if !conf.ShortAddr.WasSet {
 		conf.ShortAddr = conf.HTTPAddr
 	}
+
+	fmt.Println("------- ", conf.ShortAddr, conf.HTTPAddr)
 
 	fmt.Println(conf.JSONFile)
 
