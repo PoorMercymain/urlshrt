@@ -31,3 +31,6 @@ tmp/
 
 # Benchmark data
 benchmarks/*
+
+# Certificates
+cert/*

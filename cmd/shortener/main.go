@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	mdlwr "github.com/go-chi/chi/v5/middleware"
+	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -88,10 +89,12 @@ func main() {
 	shortEnv, shortSet := os.LookupEnv("BASE_URL")
 	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
 	dsnEnv, dsnSet := os.LookupEnv("DATABASE_DSN")
+	secureEnv, secureSet := os.LookupEnv("ENABLE_HTTPS")
 
 	fmt.Println("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
 
 	var buf *string
+	var httpsRequired *string
 
 	flag.Var(&conf.HTTPAddr, "a", "http server address")
 
@@ -101,7 +104,9 @@ func main() {
 
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
-	if !httpSet || !shortSet || !jsonFileSet || !dsnSet {
+	httpsRequired = flag.String("s", "", "turn https on")
+
+	if !httpSet || !shortSet || !jsonFileSet || !dsnSet || !secureSet {
 		flag.Parse()
 	}
 
@@ -124,6 +129,10 @@ func main() {
 		conf.DSN = dsnEnv
 	}
 
+	if secureSet {
+		httpsRequired = &secureEnv
+	}
+
 	pg := &state.Postgres{}
 	var err error
 
@@ -141,8 +150,15 @@ func main() {
 		defer pgPtr.Close()
 	}
 
+	defAddr := "://localhost:"
+	if *httpsRequired != "" {
+		defAddr = "https" + defAddr + "443/"
+	} else {
+		defAddr = "http" + defAddr + "8080/"
+	}
+
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
-		conf.ShortAddr = config.AddrWithCheck{Addr: "http://localhost:8080/", WasSet: true}
+		conf.ShortAddr = config.AddrWithCheck{Addr: defAddr, WasSet: true}
 		conf.HTTPAddr = conf.ShortAddr
 	} else if !conf.HTTPAddr.WasSet {
 		conf.HTTPAddr = conf.ShortAddr
@@ -165,8 +181,23 @@ func main() {
 
 	r := router(conf.JSONFile, pg)
 
+	var m *autocert.Manager
+
+	if *httpsRequired != "" {
+		m = &autocert.Manager{
+			Cache:  autocert.DirCache(".cache"),
+			Prompt: autocert.AcceptTOS,
+		}
+
+		go func() {
+			h := m.HTTPHandler(nil)
+			fmt.Println(http.ListenAndServe(":80", h))
+		}()
+	}
+
 	util.GetLogger().Infoln(conf)
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
+	addrToServe = strings.TrimPrefix(addrToServe, "https://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
 
 	c := make(chan os.Signal, 1)
@@ -178,7 +209,12 @@ func main() {
 	}()
 
 	go func() {
-		err = http.ListenAndServe(addrToServe, r)
+		if *httpsRequired != "" {
+			err = http.ListenAndServeTLS(addrToServe, "cert/localhost.crt", "cert/localhost.key", r)
+		} else {
+			err = http.ListenAndServe(addrToServe, r)
+		}
+
 		if err != nil {
 			util.GetLogger().Error(err)
 			ret <- struct{}{}
