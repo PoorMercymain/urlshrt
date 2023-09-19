@@ -12,6 +12,8 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 
 	_ "net/http/pprof"
 
@@ -274,9 +276,14 @@ func main() {
 	addrToServe = strings.TrimPrefix(addrToServe, "https://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
 
+	server := http.Server{
+		Addr:    addrToServe,
+		Handler: r,
+	}
+
 	c := make(chan os.Signal, 1)
 	ret := make(chan struct{}, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
 	go func() {
 		<-c
 		ret <- struct{}{}
@@ -284,9 +291,9 @@ func main() {
 
 	go func() {
 		if *httpsRequired != "" {
-			err = http.ListenAndServeTLS(addrToServe, "cert/localhost.crt", "cert/localhost.key", r)
+			err = server.ListenAndServeTLS("cert/localhost.crt", "cert/localhost.key")
 		} else {
-			err = http.ListenAndServe(addrToServe, r)
+			err = server.ListenAndServe()
 		}
 
 		if err != nil {
@@ -296,4 +303,39 @@ func main() {
 	}()
 
 	<-ret
+
+	<-time.After(time.Millisecond * 2000)
+
+	start := time.Now()
+
+	timeoutInterval := 5 * time.Second
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
+	defer cancel()
+
+	util.GetLogger().Infoln("дошел до shutdown")
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		util.GetLogger().Infoln("shutdown:", err)
+		return
+	} else {
+		cancel()
+	}
+
+	util.GetLogger().Infoln("прошел shutdown")
+	longShutdown := make(chan struct{}, 1)
+
+	go func() {
+		time.Sleep(3 * time.Second)
+		longShutdown <- struct{}{}
+	}()
+
+	select {
+	case <-shutdownCtx.Done():
+		util.GetLogger().Infoln("shutdownCtx done:", shutdownCtx.Err().Error())
+		util.GetLogger().Infoln(time.Since(start))
+		return
+	case <-longShutdown:
+		util.GetLogger().Infoln("long shutdown finished")
+		return
+	}
 }
