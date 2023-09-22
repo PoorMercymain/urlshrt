@@ -13,10 +13,12 @@ type currentUrls struct {
 // TODO: change from global
 var urls *currentUrls
 
+// InitCurrentURLs is a function to initialize struct with map of current URLs.
 func InitCurrentURLs(startURLs *map[string]URLStringJSON) {
 	urls = &currentUrls{Urls: startURLs, Mutex: new(sync.Mutex)}
 }
 
+// GetCurrentURLsPtr is a function to get pointer to struct with map of current URLs.
 func GetCurrentURLsPtr() (*currentUrls, error) {
 	if urls != nil {
 		return urls, nil

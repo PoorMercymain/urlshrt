@@ -1,3 +1,4 @@
+// handler package contains handler functions for urlshrt project.
 package handler
 
 import (
@@ -10,21 +11,24 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/go-chi/chi/v5"
 )
 
-type url struct {
+type URL struct {
 	srv domain.URLService
 }
 
-func NewURL(srv domain.URLService) *url {
-	return &url{srv: srv}
+// NewURL creates object to operate handler functions.
+func NewURL(srv domain.URLService) *URL {
+	return &URL{srv: srv}
 }
 
-func (h *url) PingPg(w http.ResponseWriter, r *http.Request) {
+// PingPg - handler to check connection to Postgres.
+func (h *URL) PingPg(w http.ResponseWriter, r *http.Request) {
 	err := h.srv.PingPg(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -33,7 +37,8 @@ func (h *url) PingPg(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
+// ReadOriginal - handler to get original URL from shortened.
+func (h *URL) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	shortenedURL := chi.URLParam(r, "short")
 
 	errChan := make(chan error, 1)
@@ -54,7 +59,8 @@ func (h *url) ReadOriginal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
+// CreateShortened - handler to create short URL from original.
+func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	if len(r.Header.Values("Content-Type")) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -107,7 +113,8 @@ func (h *url) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(addr + shortenedURL))
 }
 
-func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
+// CreateShortenedFromJSON - handler to create short URL from original which is in JSON.
+func (h *URL) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	var orig OriginalURL
 
 	if !IsJSONContentTypeCorrect(r) {
@@ -155,8 +162,9 @@ func (h *url) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
-	orig := make([]*domain.BatchElement, 0)
+// CreateShortenedFromBatch - handler to create shortened URLs from batch in JSON.
+func (h *URL) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
+	orig := make([]*domain.BatchElement, 0, 1)
 
 	if !IsJSONContentTypeCorrect(r) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -201,10 +209,12 @@ func (h *url) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
+// ReadUserURLs - handler to get all user's URLs.
+func (h *URL) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 	UserURLs, err := h.srv.ReadUserURLs(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		util.GetLogger().Infoln(err)
 		return
 	}
 
@@ -228,7 +238,7 @@ func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	UserURLsOutput := make([]domain.UserOutput, 0)
+	UserURLsOutput := make([]domain.UserOutput, 0, len(UserURLs))
 
 	addr := state.GetBaseShortAddress()
 	if addr[len(addr)-1] != '/' {
@@ -250,9 +260,10 @@ func (h *url) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
+// DeleteUserURLsAdapter - adapter for closure function to mark URL as deleted.
+func (h *URL) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		short := make([]string, 0)
+		short := make([]string, 0, 1)
 
 		if !IsJSONContentTypeCorrect(r) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -264,7 +275,7 @@ func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 			return
 		}
 
-		shortURLWithID := make([]domain.URLWithID, 0)
+		shortURLWithID := make([]domain.URLWithID, 0, len(short))
 		for _, url := range short {
 			shortURLWithID = append(shortURLWithID, domain.URLWithID{URL: url, ID: r.Context().Value(domain.Key("id")).(int64)})
 		}
@@ -285,6 +296,7 @@ func (h *url) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 	}
 }
 
+// IsJSONContentTypeCorrect - function to check content type of an http request.
 func IsJSONContentTypeCorrect(r *http.Request) bool {
 	if len(r.Header.Values("Content-Type")) == 0 {
 		return false

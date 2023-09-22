@@ -4,15 +4,17 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
+
+	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/PoorMercymain/urlshrt/internal/domain"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/golang-jwt/jwt/v4"
 )
 
+// GetUserID function is used to get id from JWT string.
 func GetUserID(tokenString string) int64 {
 	claims := jwt.MapClaims{
 		"userid": int64(-1),
@@ -27,16 +29,17 @@ func GetUserID(tokenString string) int64 {
 	}
 
 	if !token.Valid {
-		fmt.Println("Token is not valid")
+		util.GetLogger().Infoln("Token is not valid")
 		return -1
 	}
 
-	fmt.Println("Token is valid")
+	util.GetLogger().Infoln("Token is valid")
 	util.GetLogger().Infoln(claims["userid"])
 	uid := int64(claims["userid"].(float64))
 	return uid
 }
 
+// BuildJWTString is a function to generate id and create JWT string which will contain it.
 func BuildJWTString() (string, int64, error) {
 	id, err := rand.Int(rand.Reader, big.NewInt(1000))
 	if err != nil {
@@ -61,6 +64,7 @@ func BuildJWTString() (string, int64, error) {
 	return tokenString, id.Int64(), nil
 }
 
+// Authorize is a middleware which checks JWT in cookie and creates it if it does not exist or if it is not correct.
 func Authorize(h http.Handler) http.HandlerFunc {
 	jwtFn := func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("auth")
@@ -77,22 +81,18 @@ func Authorize(h http.Handler) http.HandlerFunc {
 			cookieString = cookie.String()
 		}
 
-		var jwtStr string
-
 		ctx := r.Context()
 
-		if len(cookieString) > len("auth=") {
-			jwtStr = cookieString[len("auth="):]
-		}
+		cookieString = strings.TrimPrefix(cookieString, "auth=")
 
-		if id = GetUserID(jwtStr); id == -1 || !hasCookie {
-			jwtStr, id, err = BuildJWTString()
+		if id = GetUserID(cookieString); id == -1 || !hasCookie {
+			cookieString, id, err = BuildJWTString()
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			cookieToSend := http.Cookie{Name: "auth", Value: jwtStr}
-			http.SetCookie(w, &cookieToSend)
+
+			http.SetCookie(w, &http.Cookie{Name: "auth", Value: cookieString})
 			ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
 		}
 

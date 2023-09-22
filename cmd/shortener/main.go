@@ -2,12 +2,19 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+
+	_ "net/http/pprof"
+
+	"github.com/go-chi/chi/v5"
+	mdlwr "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/PoorMercymain/urlshrt/internal/config"
 	"github.com/PoorMercymain/urlshrt/internal/domain"
@@ -17,7 +24,10 @@ import (
 	"github.com/PoorMercymain/urlshrt/internal/service"
 	"github.com/PoorMercymain/urlshrt/internal/state"
 	"github.com/PoorMercymain/urlshrt/pkg/util"
-	"github.com/go-chi/chi/v5"
+)
+
+var (
+	buildVersion, buildDate, buildCommit string
 )
 
 func router(pathToRepo string, pg *state.Postgres) chi.Router {
@@ -50,6 +60,7 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
 	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
+	r.Mount("/debug", mdlwr.Profiler())
 
 	return r
 }
@@ -58,7 +69,19 @@ func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
 	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
 }
 
+func printGlobalVariable(variable string, shortDescription string) {
+	if variable != "" {
+		fmt.Println("Build", shortDescription+":", variable)
+	} else {
+		fmt.Println("Build", shortDescription+": N/A")
+	}
+}
+
 func main() {
+	printGlobalVariable(buildVersion, "version")
+	printGlobalVariable(buildDate, "date")
+	printGlobalVariable(buildCommit, "commit")
+
 	var conf config.Config
 
 	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
@@ -81,8 +104,6 @@ func main() {
 	if !httpSet || !shortSet || !jsonFileSet || !dsnSet {
 		flag.Parse()
 	}
-
-	fmt.Println(len(os.Args))
 
 	conf.JSONFile = *buf
 	conf.DSN = *dsnBuf
@@ -112,7 +133,8 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Println(pg)
-		pgPtr, err := pg.GetPgPtr()
+		var pgPtr *sql.DB
+		pgPtr, err = pg.GetPgPtr()
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -146,9 +168,22 @@ func main() {
 	util.GetLogger().Infoln(conf)
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
 	addrToServe = strings.TrimSuffix(addrToServe, "/")
-	err = http.ListenAndServe(addrToServe, r)
-	if err != nil {
-		util.GetLogger().Error(err)
-		return
-	}
+
+	c := make(chan os.Signal, 1)
+	ret := make(chan struct{}, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		ret <- struct{}{}
+	}()
+
+	go func() {
+		err = http.ListenAndServe(addrToServe, r)
+		if err != nil {
+			util.GetLogger().Error(err)
+			ret <- struct{}{}
+		}
+	}()
+
+	<-ret
 }

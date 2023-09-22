@@ -5,14 +5,16 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/PoorMercymain/urlshrt/pkg/util"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
+// Postgres is a type which represent connection to postgres and it's DSN.
 type Postgres struct {
-	pg  *sql.DB
 	dsn string
+	pg  *sql.DB
 }
 
 func NewPG(DSN string) (*Postgres, error) {

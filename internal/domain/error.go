@@ -2,6 +2,7 @@ package domain
 
 import "fmt"
 
+// UniqueError is a type to check error of unique violation from database.
 type UniqueError struct {
 	Err error
 }
