@@ -1,4 +1,4 @@
 comment:
-  require_changes: true
+  require_changes: false
   require_head: false
   require_base: false
