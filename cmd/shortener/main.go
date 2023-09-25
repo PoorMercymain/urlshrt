@@ -35,7 +35,7 @@ var (
 	buildVersion, buildDate, buildCommit string
 )
 
-func router(pathToRepo string, pg *state.Postgres) chi.Router {
+func router(pathToRepo string, pg *state.Postgres, wg *sync.WaitGroup) chi.Router {
 	ur := repository.NewURL(pathToRepo, pg)
 	us := service.NewURL(ur)
 	uh := handler.NewURL(us)
@@ -62,9 +62,9 @@ func router(pathToRepo string, pg *state.Postgres) chi.Router {
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
 	r.Get("/ping", WrapHandler(uh.PingPg))
-	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(wg)))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
-	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once, wg)))
 	r.Mount("/debug", mdlwr.Profiler())
 
 	return r
@@ -254,7 +254,9 @@ func main() {
 
 	state.InitShortAddress(conf.ShortAddr.Addr)
 
-	r := router(conf.JSONFile, pg)
+	var wg sync.WaitGroup
+
+	r := router(conf.JSONFile, pg, &wg)
 
 	var m *autocert.Manager
 
@@ -304,8 +306,6 @@ func main() {
 
 	<-ret
 
-	<-time.After(time.Millisecond * 2000)
-
 	start := time.Now()
 
 	timeoutInterval := 5 * time.Second
@@ -322,20 +322,10 @@ func main() {
 	}
 
 	util.GetLogger().Infoln("прошел shutdown")
-	longShutdown := make(chan struct{}, 1)
 
-	go func() {
-		time.Sleep(3 * time.Second)
-		longShutdown <- struct{}{}
-	}()
+	wg.Wait()
+	<-shutdownCtx.Done()
+	util.GetLogger().Infoln("shutdownCtx done:", shutdownCtx.Err().Error())
 
-	select {
-	case <-shutdownCtx.Done():
-		util.GetLogger().Infoln("shutdownCtx done:", shutdownCtx.Err().Error())
-		util.GetLogger().Infoln(time.Since(start))
-		return
-	case <-longShutdown:
-		util.GetLogger().Infoln("long shutdown finished")
-		return
-	}
+	util.GetLogger().Infoln(time.Since(start))
 }

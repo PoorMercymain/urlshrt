@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,12 +16,13 @@ func routerExampleCreateShortenedFromBatch() chi.Router {
 
 	uh := NewURL(us)
 
-	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
+	var wg sync.WaitGroup
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(&wg)))
 
 	return r
 }
 
-func ExampleURL_CreateShortenedFromBatch() {
+func ExampleURL_CreateShortenedFromBatchAdapter() {
 	ts := httptest.NewServer(routerExampleCreateShortenedFromBatch())
 	defer ts.Close()
 

@@ -318,13 +318,14 @@ func benchmarkRouter(b *testing.B) chi.Router {
 
 	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
 	var once sync.Once
+	var wg sync.WaitGroup
 
 	r.Post("/", WrapHandler(uh.CreateShortened))
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
 	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
-	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatch))
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(&wg)))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
-	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once)))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once, &wg)))
 
 	return r
 }
@@ -536,9 +537,9 @@ func GetExampleMockSrv() *mocks.MockURLService {
 
 	us.EXPECT().CreateShortened(gomock.Any(), gomock.Any()).Return("GqKWdrE", nil).AnyTimes()
 	us.EXPECT().ReadOriginal(gomock.Any(), gomock.Any(), gomock.Any()).Return("https://ya.ru", nil).AnyTimes()
-	us.EXPECT().CreateShortenedFromBatch(gomock.Any(), gomock.Any()).Return(ber, nil).AnyTimes()
+	us.EXPECT().CreateShortenedFromBatch(gomock.Any(), gomock.Any(), gomock.Any()).Return(ber, nil).AnyTimes()
 	us.EXPECT().ReadUserURLs(gomock.Any()).Return(usj, nil).AnyTimes()
-	us.EXPECT().DeleteUserURLs(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	us.EXPECT().DeleteUserURLs(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
 
 	return us
 }

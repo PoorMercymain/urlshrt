@@ -9,10 +9,9 @@ import (
 	reflect "reflect"
 	sync "sync"
 
-	gomock "github.com/golang/mock/gomock"
-
 	domain "github.com/PoorMercymain/urlshrt/internal/domain"
 	state "github.com/PoorMercymain/urlshrt/internal/state"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockURLService is a mock of URLService interface.
@@ -54,30 +53,30 @@ func (mr *MockURLServiceMockRecorder) CreateShortened(arg0, arg1 interface{}) *g
 }
 
 // CreateShortenedFromBatch mocks base method.
-func (m *MockURLService) CreateShortenedFromBatch(arg0 context.Context, arg1 []*domain.BatchElement) ([]domain.BatchElementResult, error) {
+func (m *MockURLService) CreateShortenedFromBatch(arg0 context.Context, arg1 []*domain.BatchElement, arg2 *sync.WaitGroup) ([]domain.BatchElementResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateShortenedFromBatch", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateShortenedFromBatch", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]domain.BatchElementResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateShortenedFromBatch indicates an expected call of CreateShortenedFromBatch.
-func (mr *MockURLServiceMockRecorder) CreateShortenedFromBatch(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockURLServiceMockRecorder) CreateShortenedFromBatch(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateShortenedFromBatch", reflect.TypeOf((*MockURLService)(nil).CreateShortenedFromBatch), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateShortenedFromBatch", reflect.TypeOf((*MockURLService)(nil).CreateShortenedFromBatch), arg0, arg1, arg2)
 }
 
 // DeleteUserURLs mocks base method.
-func (m *MockURLService) DeleteUserURLs(arg0 context.Context, arg1 []domain.URLWithID, arg2 *domain.MutexChanString, arg3 *sync.Once) {
+func (m *MockURLService) DeleteUserURLs(arg0 context.Context, arg1 []domain.URLWithID, arg2 *domain.MutexChanString, arg3 *sync.Once, arg4 *sync.WaitGroup) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "DeleteUserURLs", arg0, arg1, arg2, arg3)
+	m.ctrl.Call(m, "DeleteUserURLs", arg0, arg1, arg2, arg3, arg4)
 }
 
 // DeleteUserURLs indicates an expected call of DeleteUserURLs.
-func (mr *MockURLServiceMockRecorder) DeleteUserURLs(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockURLServiceMockRecorder) DeleteUserURLs(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUserURLs", reflect.TypeOf((*MockURLService)(nil).DeleteUserURLs), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUserURLs", reflect.TypeOf((*MockURLService)(nil).DeleteUserURLs), arg0, arg1, arg2, arg3, arg4)
 }
 
 // PingPg mocks base method.

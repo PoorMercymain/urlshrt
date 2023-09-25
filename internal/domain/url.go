@@ -13,10 +13,10 @@ import (
 type URLService interface {
 	ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error)
 	CreateShortened(ctx context.Context, original string) (string, error)
-	CreateShortenedFromBatch(ctx context.Context, batch []*BatchElement) ([]BatchElementResult, error)
+	CreateShortenedFromBatch(ctx context.Context, batch []*BatchElement, wg *sync.WaitGroup) ([]BatchElementResult, error)
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
-	DeleteUserURLs(ctx context.Context, short []URLWithID, shortURLsChan *MutexChanString, once *sync.Once)
+	DeleteUserURLs(ctx context.Context, short []URLWithID, shortURLsChan *MutexChanString, once *sync.Once, wg *sync.WaitGroup)
 }
 
 // URLRepository is an interface which defines what functions does an object which will operate on repository layer should implement.
