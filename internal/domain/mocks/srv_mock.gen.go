@@ -9,9 +9,10 @@ import (
 	reflect "reflect"
 	sync "sync"
 
+	gomock "github.com/golang/mock/gomock"
+
 	domain "github.com/PoorMercymain/urlshrt/internal/domain"
 	state "github.com/PoorMercymain/urlshrt/internal/state"
-	gomock "github.com/golang/mock/gomock"
 )
 
 // MockURLService is a mock of URLService interface.
