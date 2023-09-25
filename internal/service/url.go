@@ -122,6 +122,7 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan e
 		return "", errors.New("no such value")
 	} else if err != nil {
 		util.GetLogger().Infoln(err)
+		return "", err
 	} else {
 		errDeleted := errors.New("the requested url was deleted")
 		errChan <- errDeleted
