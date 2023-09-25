@@ -209,6 +209,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 						util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
 						shortURLs.uid = append(shortURLs.uid, shrt.ID)
 						util.GetLogger().Infoln("добавил", shrt)
+						wg.Add(1)
 					}
 					shortURLs.Unlock()
 				default:
@@ -217,7 +218,9 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
 						util.GetLogger().Infoln(deleteErr)
 						g, erro := s.repo.IsURLDeleted(ctx, shortURLs.URLs[0])
-						wg.Done()
+						for range shortURLs.uid {
+							wg.Done()
+						}
 						util.GetLogger().Infoln("удалил ли? вот ответ -", g, erro)
 						shortURLs.Lock()
 						shortURLs.URLs = shortURLs.URLs[:0]
