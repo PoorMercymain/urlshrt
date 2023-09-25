@@ -145,7 +145,10 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 				}
 				buf := bytes.NewBuffer(jsonByteSlice)
 				buf.WriteByte('\n')
-				f.WriteString(buf.String())
+				_, err = f.WriteString(buf.String())
+				if err != nil {
+					return "", err
+				}
 			}
 		}
 
@@ -214,7 +217,10 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 			}
 			buf := bytes.NewBuffer(jsonByteSlice)
 			buf.WriteByte('\n')
-			f.WriteString(buf.String())
+			_, err := f.WriteString(buf.String())
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -224,7 +230,12 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		err = tx.Rollback()
+		if err != nil {
+			return
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4, $5)")
 
@@ -305,7 +316,12 @@ func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int6
 		util.GetLogger().Infoln("err3", err)
 		return err
 	}
-	defer tx.Rollback()
+	defer func(){
+		err = tx.Rollback()
+		if err != nil {
+			return
+		}
+	}()
 
 	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE (short, user_id) IN (SELECT unnest($1::text[]), unnest($2::int[]))")
 
@@ -340,7 +356,10 @@ func (r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) 
 	util.GetLogger().Infoln(shortened)
 	row := db.QueryRow("SELECT is_deleted FROM urlshrt WHERE short = $1", shortened)
 	util.GetLogger().Infoln(row.Err())
-	row.Scan(&isDeleted)
+	err = row.Scan(&isDeleted)
+	if err != nil {
+		return false, err
+	}
 	util.GetLogger().Infoln(isDeleted)
 	if isDeleted == 0 {
 		return false, nil

@@ -11,7 +11,7 @@ func TestAddrWithCheck(t *testing.T) {
 	require.Empty(t, a)
 	require.False(t, a.WasSet)
 
-	a.Set("ab")
+	require.NoError(t, a.Set("ab"))
 	require.NotEmpty(t, a)
 	require.Len(t, a.Addr, 2)
 	require.True(t, a.WasSet)

@@ -248,7 +248,12 @@ func main() {
 		fmt.Fprint(os.Stderr, err.Error())
 	}
 
-	defer util.GetLogger().Sync()
+	defer func() {
+		err = util.GetLogger().Sync()
+		if err != nil {
+			return
+		}
+	}()
 
 	util.GetLogger().Infoln("dsn", conf.DSN)
 

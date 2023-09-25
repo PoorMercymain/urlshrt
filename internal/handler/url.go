@@ -101,7 +101,10 @@ func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	if err != nil && errors.As(err, &uErr) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(addr + shortenedURL))
+		_, err = w.Write([]byte(addr + shortenedURL))
+		if err != nil {
+			return
+		}
 		return
 	} else if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -110,7 +113,10 @@ func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(addr + shortenedURL))
+	_, err = w.Write([]byte(addr + shortenedURL))
+	if err != nil {
+		return
+	}
 }
 
 // CreateShortenedFromJSON - handler to create short URL from original which is in JSON.
@@ -159,7 +165,10 @@ func (h *URL) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		util.GetLogger().Errorln(err)
 		return
 	}
-	w.Write(buf.Bytes())
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		return
+	}
 }
 
 // CreateShortenedFromBatchAdapter - adapter for handler to create shortened URLs from batch in JSON.
@@ -207,7 +216,10 @@ func (h *URL) CreateShortenedFromBatchAdapter(wg *sync.WaitGroup) http.HandlerFu
 			util.GetLogger().Errorln(err)
 			return
 		}
-		w.Write(buf.Bytes())
+		_, err = w.Write(buf.Bytes())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -259,7 +271,10 @@ func (h *URL) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 		util.GetLogger().Errorln(err)
 		return
 	}
-	w.Write(buf.Bytes())
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		return
+	}
 }
 
 // DeleteUserURLsAdapter - adapter for closure function to mark URL as deleted.

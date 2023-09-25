@@ -113,9 +113,14 @@ func router(t *testing.T) chi.Router {
 
 	host := "http://localhost:8080"
 
-	util.InitLogger()
+	require.NoError(t, util.InitLogger())
 
-	defer util.GetLogger().Sync()
+	defer func() {
+		err := util.GetLogger().Sync()
+		if err != nil {
+			return
+		}
+	}()
 
 	pg := &state.Postgres{}
 
@@ -285,9 +290,17 @@ func benchmarkRouter(b *testing.B) chi.Router {
 
 	host := "http://localhost:8080"
 
-	util.InitLogger()
+	err := util.InitLogger()
+	if err != nil {
+		return nil
+	}
 
-	defer util.GetLogger().Sync()
+	defer func() {
+		err := util.GetLogger().Sync()
+		if err != nil {
+			return
+		}
+	}()
 
 	ctrl := gomock.NewController(b)
 	defer ctrl.Finish()
