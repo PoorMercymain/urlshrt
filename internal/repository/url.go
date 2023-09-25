@@ -50,11 +50,10 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 			return nil, err
 		}
 
-		defer func() error {
+		defer func() {
 			if err := f.Close(); err != nil {
-				return err
+				util.GetLogger().Infoln(err)
 			}
-			return nil
 		}()
 
 		scanner := bufio.NewScanner(f)
@@ -119,11 +118,10 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 			return "", err
 		}
 
-		defer func() error {
+		defer func() {
 			if err = f.Close(); err != nil {
-				return err
+				util.GetLogger().Infoln(err)
 			}
-			return nil
 		}()
 
 		var urlsFromFile []state.URLStringJSON
@@ -202,11 +200,10 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 			return err
 		}
 
-		defer func() error {
+		defer func() {
 			if err = f.Close(); err != nil {
-				return err
+				util.GetLogger().Infoln(err)
 			}
-			return nil
 		}()
 
 		for _, str := range batch {
