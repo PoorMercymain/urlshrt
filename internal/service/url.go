@@ -209,7 +209,6 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 						util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
 						shortURLs.uid = append(shortURLs.uid, shrt.ID)
 						util.GetLogger().Infoln("добавил", shrt)
-						wg.Add(1)
 					}
 					shortURLs.Unlock()
 				default:
