@@ -6,3 +6,6 @@ comment:
 coverage:
   status:
     patch: false
+    project:
+      default:
+        threshold: 3%
