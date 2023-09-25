@@ -74,18 +74,10 @@ func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
 	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
 }
 
-func printGlobalVariable(variable string, shortDescription string) {
-	if variable != "" {
-		fmt.Println("Build", shortDescription+":", variable)
-	} else {
-		fmt.Println("Build", shortDescription+": N/A")
-	}
-}
-
 func main() {
-	printGlobalVariable(buildVersion, "version")
-	printGlobalVariable(buildDate, "date")
-	printGlobalVariable(buildCommit, "commit")
+	util.PrintVariable(buildVersion, "version")
+	util.PrintVariable(buildDate, "date")
+	util.PrintVariable(buildCommit, "commit")
 
 	var conf config.Config
 
@@ -94,6 +86,7 @@ func main() {
 	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
 	dsnEnv, dsnSet := os.LookupEnv("DATABASE_DSN")
 	secureEnv, secureSet := os.LookupEnv("ENABLE_HTTPS")
+	configEnv, configSet := os.LookupEnv("CONFIG")
 
 	fmt.Println("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
 
@@ -113,7 +106,7 @@ func main() {
 
 	confFilePath = flag.String("c", "", "config file path")
 
-	if !httpSet || !shortSet || !jsonFileSet || !dsnSet || !secureSet {
+	if !httpSet || !shortSet || !jsonFileSet || !dsnSet || !secureSet || !configSet {
 		flag.Parse()
 	}
 
@@ -140,6 +133,10 @@ func main() {
 		httpsRequired = &secureEnv
 	}
 
+	if configSet {
+		confFilePath = &configEnv
+	}
+
 	var rawConfig struct {
 		JSONFile     string `json:"file_storage_path,omitempty"`
 		DSN          string `json:"database_dsn,omitempty"`
@@ -149,7 +146,7 @@ func main() {
 	}
 
 	if *confFilePath != "" {
-		file, err := os.Open("config.json")
+		file, err := os.Open(*confFilePath)
 		if err != nil {
 			fmt.Println("Error opening file:", err)
 			return
@@ -229,7 +226,6 @@ func main() {
 		defAddr = "http" + defAddr + "8080/"
 	}
 
-	fmt.Println("------- ", conf.ShortAddr, conf.HTTPAddr)
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: defAddr, WasSet: true}
 		conf.HTTPAddr = conf.ShortAddr
@@ -238,8 +234,6 @@ func main() {
 	} else if !conf.ShortAddr.WasSet {
 		conf.ShortAddr = conf.HTTPAddr
 	}
-
-	fmt.Println("------- ", conf.ShortAddr, conf.HTTPAddr)
 
 	fmt.Println(conf.JSONFile)
 
