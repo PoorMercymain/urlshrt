@@ -26,9 +26,7 @@ func (s *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 }
 
 func (s *url) PingPg(ctx context.Context) error {
-	err := s.repo.PingPg(ctx)
-	//util.GetLogger().Infoln("~~~", err, "~~~")
-	return err
+	return s.repo.PingPg(ctx)
 }
 
 // CreateShortenedFromBatch creates shorten URLs from batch elements and calls repository level to save it to database.
@@ -122,6 +120,8 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan e
 			}
 		}
 		return "", errors.New("no such value")
+	} else if err != nil {
+		util.GetLogger().Infoln(err)
 	} else {
 		errDeleted := errors.New("the requested url was deleted")
 		errChan <- errDeleted
@@ -216,12 +216,17 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 					if len(shortURLs.URLs) >= 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
 						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
-						util.GetLogger().Infoln(deleteErr)
+						if deleteErr != nil {
+							util.GetLogger().Infoln(deleteErr)
+						}
 						g, erro := s.repo.IsURLDeleted(ctx, shortURLs.URLs[0])
 						for range shortURLs.uid {
 							wg.Done()
 						}
-						util.GetLogger().Infoln("удалил ли? вот ответ -", g, erro)
+						util.GetLogger().Infoln("удалил ли? вот ответ -", g)
+						if erro != nil {
+							util.GetLogger().Infoln(erro)
+						}
 						shortURLs.Lock()
 						shortURLs.URLs = shortURLs.URLs[:0]
 						shortURLs.uid = shortURLs.uid[:0]
