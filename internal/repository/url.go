@@ -313,7 +313,7 @@ func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int6
 		util.GetLogger().Infoln("err3", err)
 		return err
 	}
-	defer func(){
+	defer func() {
 		err = tx.Rollback()
 		if err != nil {
 			return
