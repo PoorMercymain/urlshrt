@@ -23,7 +23,7 @@ func TestPrintVariable(t *testing.T) {
 	var buf bytes.Buffer
 	_, err = buf.ReadFrom(r)
 	require.NoError(t, err)
-	
+
 	got := buf.String()
 	want := "Build test var: N/A\nBuild another test var: a\n"
 
