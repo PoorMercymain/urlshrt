@@ -153,10 +153,10 @@ func main() {
 		}
 		defer file.Close()
 
-		var content string
+		var content strings.Builder
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
-			content += scanner.Text()
+			content.Write(scanner.Bytes())
 		}
 
 		if err := scanner.Err(); err != nil {
@@ -164,7 +164,7 @@ func main() {
 			return
 		}
 
-		err = json.Unmarshal([]byte(content), &rawConfig)
+		err = json.Unmarshal([]byte(content.String()), &rawConfig)
 		if err != nil {
 			fmt.Println("Error unmarshalling JSON:", err)
 			return
@@ -259,15 +259,18 @@ func main() {
 
 	var m *autocert.Manager
 
+	const cacheDirPath = ".cache"
+	const defaultHTTPS01ChallengeServer = ":80"
+
 	if *httpsRequired != "" {
 		m = &autocert.Manager{
-			Cache:  autocert.DirCache(".cache"),
+			Cache:  autocert.DirCache(cacheDirPath),
 			Prompt: autocert.AcceptTOS,
 		}
 
 		go func() {
 			h := m.HTTPHandler(nil)
-			fmt.Println(http.ListenAndServe(":80", h))
+			fmt.Println(http.ListenAndServe(defaultHTTPS01ChallengeServer, h))
 		}()
 	}
 
@@ -290,9 +293,11 @@ func main() {
 		ret <- struct{}{}
 	}()
 
+	const certPath = "cert/localhost.crt"
+	const keyPath = "cert/localhost.key"
 	go func() {
 		if *httpsRequired != "" {
-			err = server.ListenAndServeTLS("cert/localhost.crt", "cert/localhost.key")
+			err = server.ListenAndServeTLS(certPath, keyPath)
 		} else {
 			err = server.ListenAndServe()
 		}
@@ -307,7 +312,7 @@ func main() {
 
 	start := time.Now()
 
-	timeoutInterval := 5 * time.Second
+	const timeoutInterval = 5 * time.Second
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
 	defer cancel()
