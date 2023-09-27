@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -88,10 +89,20 @@ func main() {
 	secureEnv, secureSet := os.LookupEnv("ENABLE_HTTPS")
 	configEnv, configSet := os.LookupEnv("CONFIG")
 
+	var boolSecureEnv bool
+	var err error
+	if secureSet {
+		boolSecureEnv, err = strconv.ParseBool(secureEnv)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
 	fmt.Println("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
 
 	var buf *string
-	var httpsRequired *string
+	var httpsRequired *bool
 	var confFilePath *string
 
 	flag.Var(&conf.HTTPAddr, "a", "http server address")
@@ -102,7 +113,7 @@ func main() {
 
 	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
 
-	httpsRequired = flag.String("s", "", "turn https on")
+	httpsRequired = flag.Bool("s", false, "turn https on")
 
 	confFilePath = flag.String("c", "", "config file path")
 
@@ -130,7 +141,7 @@ func main() {
 	}
 
 	if secureSet {
-		httpsRequired = &secureEnv
+		httpsRequired = &boolSecureEnv
 	}
 
 	if configSet {
@@ -142,7 +153,7 @@ func main() {
 		DSN          string `json:"database_dsn,omitempty"`
 		HTTPAddr     string `json:"server_address,omitempty"`
 		ShortAddr    string `json:"base_url,omitempty"`
-		HTTPSEnabled string `json:"enable_https,omitempty"`
+		HTTPSEnabled bool   `json:"enable_https,omitempty"`
 	}
 
 	if *confFilePath != "" {
@@ -197,13 +208,12 @@ func main() {
 			conf.DSN = rawConfig.DSN
 		}
 
-		if *httpsRequired == "" {
+		if !(*httpsRequired) {
 			*httpsRequired = rawConfig.HTTPSEnabled
 		}
 	}
 
 	pg := &state.Postgres{}
-	var err error
 
 	if conf.DSN != "" {
 		pg, err = state.NewPG(conf.DSN)
@@ -220,10 +230,10 @@ func main() {
 	}
 
 	defAddr := "://localhost:"
-	if *httpsRequired != "" {
-		defAddr = "https" + defAddr + "443/"
+	if *httpsRequired {
+		defAddr = fmt.Sprintf("https%s443/", defAddr)
 	} else {
-		defAddr = "http" + defAddr + "8080/"
+		defAddr = fmt.Sprintf("http%s8080/", defAddr)
 	}
 
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
@@ -262,7 +272,7 @@ func main() {
 	const cacheDirPath = ".cache"
 	const defaultHTTPS01ChallengeServer = ":80"
 
-	if *httpsRequired != "" {
+	if *httpsRequired {
 		m = &autocert.Manager{
 			Cache:  autocert.DirCache(cacheDirPath),
 			Prompt: autocert.AcceptTOS,
@@ -296,7 +306,7 @@ func main() {
 	const certPath = "cert/localhost.crt"
 	const keyPath = "cert/localhost.key"
 	go func() {
-		if *httpsRequired != "" {
+		if *httpsRequired {
 			err = server.ListenAndServeTLS(certPath, keyPath)
 		} else {
 			err = server.ListenAndServe()
