@@ -75,13 +75,33 @@ func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
 	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
 }
 
+func defineFlags(conf *config.Config) {
+	flag.Var(&conf.HTTPAddr, "a", "http server address")
+
+	flag.Var(&conf.ShortAddr, "b", "base address of the shortened URL")
+
+	flag.StringVar(&conf.DSN, "d", "", "string to connect to database")
+
+	flag.StringVar(&conf.JSONFile, "f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
+
+	flag.BoolVar(&conf.HTTPSEnabled, "s", false, "turns https on if not set to false")
+
+	flag.StringVar(&conf.ConfigFilePath, "c", "", "config file path")
+}
+
 func main() {
 	util.PrintVariable(buildVersion, "version")
 	util.PrintVariable(buildDate, "date")
 	util.PrintVariable(buildCommit, "commit")
 
+	err := util.InitLogger()
+	if err != nil {
+		fmt.Fprint(os.Stderr, err.Error())
+	}
+
 	var conf config.Config
 
+	// getting values of environment variables
 	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
 	shortEnv, shortSet := os.LookupEnv("BASE_URL")
 	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
@@ -90,40 +110,25 @@ func main() {
 	configEnv, configSet := os.LookupEnv("CONFIG")
 
 	var boolSecureEnv bool
-	var err error
 	if secureSet {
+		// parsing value because os.LookupEnv returns a string, not a bool
 		boolSecureEnv, err = strconv.ParseBool(secureEnv)
 		if err != nil {
-			fmt.Println(err)
+			util.GetLogger().Infoln(err)
 			return
 		}
 	}
 
-	fmt.Println("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
+	util.GetLogger().Debugln("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
 
-	var buf *string
-	var httpsRequired *bool
-	var confFilePath *string
+	defineFlags(&conf)
 
-	flag.Var(&conf.HTTPAddr, "a", "http server address")
-
-	flag.Var(&conf.ShortAddr, "b", "base address of the shortened URL")
-
-	dsnBuf := flag.String("d", "", "string to connect to database")
-
-	buf = flag.String("f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
-
-	httpsRequired = flag.Bool("s", false, "turn https on")
-
-	confFilePath = flag.String("c", "", "config file path")
-
+	// if some of config settings were not set, we need to parse flags
 	if !httpSet || !shortSet || !jsonFileSet || !dsnSet || !secureSet || !configSet {
 		flag.Parse()
 	}
 
-	conf.JSONFile = *buf
-	conf.DSN = *dsnBuf
-
+	// if a value was set by environment variable, we do not have to redefine it
 	if httpSet {
 		conf.HTTPAddr = config.AddrWithCheck{Addr: httpEnv, WasSet: true}
 	}
@@ -141,13 +146,14 @@ func main() {
 	}
 
 	if secureSet {
-		httpsRequired = &boolSecureEnv
+		conf.HTTPSEnabled = boolSecureEnv
 	}
 
 	if configSet {
-		confFilePath = &configEnv
+		conf.ConfigFilePath = configEnv
 	}
 
+	// required names of settings in a config file are not the same as in config struct, so we need another one which is rawConfig
 	var rawConfig struct {
 		JSONFile     string `json:"file_storage_path,omitempty"`
 		DSN          string `json:"database_dsn,omitempty"`
@@ -156,10 +162,10 @@ func main() {
 		HTTPSEnabled bool   `json:"enable_https,omitempty"`
 	}
 
-	if *confFilePath != "" {
-		file, err := os.Open(*confFilePath)
+	if conf.ConfigFilePath != "" {
+		file, err := os.Open(conf.ConfigFilePath)
 		if err != nil {
-			fmt.Println("Error opening file:", err)
+			util.GetLogger().Infoln("Error opening file:", err)
 			return
 		}
 		defer file.Close()
@@ -171,16 +177,18 @@ func main() {
 		}
 
 		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading file:", err)
+			util.GetLogger().Infoln("Error reading file:", err)
 			return
 		}
 
 		err = json.Unmarshal([]byte(content.String()), &rawConfig)
 		if err != nil {
-			fmt.Println("Error unmarshalling JSON:", err)
+			util.GetLogger().Infoln("Error unmarshalling JSON:", err)
 			return
 		}
 
+		// if a variable is empty or has a default value (which means it was not set by both flags and environment variables)
+		// then we need to use values from config file
 		if conf.HTTPAddr.Addr == "" {
 			set := true
 			if rawConfig.HTTPAddr == "" {
@@ -200,7 +208,7 @@ func main() {
 			conf.ShortAddr = config.AddrWithCheck{Addr: rawConfig.ShortAddr, WasSet: set}
 		}
 
-		if conf.JSONFile == "" {
+		if (conf.JSONFile == "./tmp/short-url-db.json" || conf.JSONFile == "") && rawConfig.JSONFile != "" {
 			conf.JSONFile = rawConfig.JSONFile
 		}
 
@@ -208,34 +216,38 @@ func main() {
 			conf.DSN = rawConfig.DSN
 		}
 
-		if !(*httpsRequired) {
-			*httpsRequired = rawConfig.HTTPSEnabled
+		if !conf.HTTPSEnabled {
+			conf.HTTPSEnabled = rawConfig.HTTPSEnabled
 		}
 	}
 
+	// creating a postgres struct
 	pg := &state.Postgres{}
 
 	if conf.DSN != "" {
 		pg, err = state.NewPG(conf.DSN)
 		if err != nil {
-			fmt.Println(err)
+			util.GetLogger().Infoln(err)
 		}
-		fmt.Println(pg)
+		util.GetLogger().Debugln(pg)
 		var pgPtr *sql.DB
 		pgPtr, err = pg.GetPgPtr()
 		if err != nil {
-			fmt.Println(err)
+			util.GetLogger().Infoln(err)
 		}
 		defer pgPtr.Close()
 	}
 
+	// if address were not specified, we may need to use a default address which is different for HTTP and HTTPS
 	defAddr := "://localhost:"
-	if *httpsRequired {
+	if conf.HTTPSEnabled {
 		defAddr = fmt.Sprintf("https%s443/", defAddr)
 	} else {
 		defAddr = fmt.Sprintf("http%s8080/", defAddr)
 	}
 
+	// if both addresses were not set, we just use the default one
+	// if only one address were set, its value is used for another address too
 	if !conf.HTTPAddr.WasSet && !conf.ShortAddr.WasSet {
 		conf.ShortAddr = config.AddrWithCheck{Addr: defAddr, WasSet: true}
 		conf.HTTPAddr = conf.ShortAddr
@@ -245,12 +257,7 @@ func main() {
 		conf.ShortAddr = conf.HTTPAddr
 	}
 
-	fmt.Println(conf.JSONFile)
-
-	err = util.InitLogger()
-	if err != nil {
-		fmt.Fprint(os.Stderr, err.Error())
-	}
+	util.GetLogger().Debugln(conf.JSONFile)
 
 	defer func() {
 		err = util.GetLogger().Sync()
@@ -259,10 +266,13 @@ func main() {
 		}
 	}()
 
-	util.GetLogger().Infoln("dsn", conf.DSN)
+	util.GetLogger().Debugln("dsn", conf.DSN)
 
+	// initializing base address of short URLs
 	state.InitShortAddress(conf.ShortAddr.Addr)
 
+	// WaitGroup is required for handlers which can create goroutines working in
+	// background without using network, so we could wait for them to shut down gracefully
 	var wg sync.WaitGroup
 
 	r := router(conf.JSONFile, pg, &wg)
@@ -272,7 +282,8 @@ func main() {
 	const cacheDirPath = ".cache"
 	const defaultHTTPS01ChallengeServer = ":80"
 
-	if *httpsRequired {
+	// for HTTPs certificates are required, so we are setting up autocert manager and a handler for HTTPS 01 challenge
+	if conf.HTTPSEnabled {
 		m = &autocert.Manager{
 			Cache:  autocert.DirCache(cacheDirPath),
 			Prompt: autocert.AcceptTOS,
@@ -284,7 +295,7 @@ func main() {
 		}()
 	}
 
-	util.GetLogger().Infoln(conf)
+	util.GetLogger().Debugln(conf)
 
 	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
 	addrToServe = strings.TrimPrefix(addrToServe, "https://")
@@ -295,6 +306,7 @@ func main() {
 		Handler: r,
 	}
 
+	// channel to intercept signals for graceful shutdown
 	c := make(chan os.Signal, 1)
 	ret := make(chan struct{}, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
@@ -303,10 +315,12 @@ func main() {
 		ret <- struct{}{}
 	}()
 
+	// certificate and key paths (you should get them before starting the service,
+	// but if you use provided makefile, it shall get them for you)
 	const certPath = "cert/localhost.crt"
 	const keyPath = "cert/localhost.key"
 	go func() {
-		if *httpsRequired {
+		if conf.HTTPSEnabled {
 			err = server.ListenAndServeTLS(certPath, keyPath)
 		} else {
 			err = server.ListenAndServe()
@@ -318,6 +332,7 @@ func main() {
 		}
 	}()
 
+	// waiting for a signal for shutting down or an error to occur
 	<-ret
 
 	start := time.Now()
@@ -327,7 +342,9 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
 	defer cancel()
 
-	util.GetLogger().Infoln("дошел до shutdown")
+	util.GetLogger().Debugln("дошел до shutdown")
+
+	// shutting down gracefully
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		util.GetLogger().Infoln("shutdown:", err)
 		return
@@ -335,11 +352,14 @@ func main() {
 		cancel()
 	}
 
-	util.GetLogger().Infoln("прошел shutdown")
+	util.GetLogger().Debugln("прошел shutdown")
 
+	// waiting for goroutines which are not using network to finish their jobs
 	wg.Wait()
-	<-shutdownCtx.Done()
-	util.GetLogger().Infoln("shutdownCtx done:", shutdownCtx.Err().Error())
 
-	util.GetLogger().Infoln(time.Since(start))
+	// waiting for shutdown to finish
+	<-shutdownCtx.Done()
+	util.GetLogger().Debugln("shutdownCtx done:", shutdownCtx.Err().Error())
+
+	util.GetLogger().Debugln(time.Since(start))
 }
