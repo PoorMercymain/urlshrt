@@ -43,7 +43,6 @@ func (r *url) WithTransaction(db *sql.DB, txFunc func(*sql.Tx) error) error {
 
 	err = txFunc(tx)
 	if err != nil {
-		util.GetLogger().Infoln(err)
 		return err
 	}
 
@@ -268,7 +267,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 			}
 		}
 
-		return tx.Commit()
+		return nil
 	})
 }
 
@@ -336,7 +335,7 @@ func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int6
 			return err
 		}
 
-		return tx.Commit()
+		return nil
 	})
 }
 
