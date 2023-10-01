@@ -90,6 +90,19 @@ func defineFlags(conf *config.Config) {
 }
 
 func main() {
+	const (
+		serverAddressEnvName   = "SERVER_ADDRESS"
+		baseURLEnvName         = "BASE_URL"
+		fileStoragePathEnvName = "FILE_STORAGE_PATH"
+		databaseDSNEnvName     = "DATABASE_DSN"
+		enableHTTPSEnvName     = "ENABLE_HTTPS"
+		configFileEnvName      = "CONFIG"
+		defaultFileStorage     = "./tmp/short-url-db.json"
+		HTTPPrefix             = "http://"
+		HTTPSPrefix            = "https://"
+		slash                  = "/"
+	)
+
 	util.PrintVariable(buildVersion, "version")
 	util.PrintVariable(buildDate, "date")
 	util.PrintVariable(buildCommit, "commit")
@@ -102,12 +115,12 @@ func main() {
 	var conf config.Config
 
 	// getting values of environment variables
-	httpEnv, httpSet := os.LookupEnv("SERVER_ADDRESS")
-	shortEnv, shortSet := os.LookupEnv("BASE_URL")
-	jsonFileEnv, jsonFileSet := os.LookupEnv("FILE_STORAGE_PATH")
-	dsnEnv, dsnSet := os.LookupEnv("DATABASE_DSN")
-	secureEnv, secureSet := os.LookupEnv("ENABLE_HTTPS")
-	configEnv, configSet := os.LookupEnv("CONFIG")
+	httpEnv, httpSet := os.LookupEnv(serverAddressEnvName)
+	shortEnv, shortSet := os.LookupEnv(baseURLEnvName)
+	jsonFileEnv, jsonFileSet := os.LookupEnv(fileStoragePathEnvName)
+	dsnEnv, dsnSet := os.LookupEnv(databaseDSNEnvName)
+	secureEnv, secureSet := os.LookupEnv(enableHTTPSEnvName)
+	configEnv, configSet := os.LookupEnv(configFileEnvName)
 
 	var boolSecureEnv bool
 	if secureSet {
@@ -195,7 +208,7 @@ func main() {
 				set = false
 			}
 
-			fmt.Println("=====", set)
+			util.GetLogger().Debugln("=====", set)
 			conf.HTTPAddr = config.AddrWithCheck{Addr: rawConfig.HTTPAddr, WasSet: set}
 		}
 
@@ -208,7 +221,7 @@ func main() {
 			conf.ShortAddr = config.AddrWithCheck{Addr: rawConfig.ShortAddr, WasSet: set}
 		}
 
-		if (conf.JSONFile == "./tmp/short-url-db.json" || conf.JSONFile == "") && rawConfig.JSONFile != "" {
+		if (conf.JSONFile == defaultFileStorage || conf.JSONFile == "") && rawConfig.JSONFile != "" {
 			conf.JSONFile = rawConfig.JSONFile
 		}
 
@@ -297,9 +310,9 @@ func main() {
 
 	util.GetLogger().Debugln(conf)
 
-	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, "http://")
-	addrToServe = strings.TrimPrefix(addrToServe, "https://")
-	addrToServe = strings.TrimSuffix(addrToServe, "/")
+	addrToServe := strings.TrimPrefix(conf.HTTPAddr.Addr, HTTPPrefix)
+	addrToServe = strings.TrimPrefix(addrToServe, HTTPSPrefix)
+	addrToServe = strings.TrimSuffix(addrToServe, slash)
 
 	server := http.Server{
 		Addr:    addrToServe,
