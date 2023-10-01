@@ -29,6 +29,26 @@ func NewURL(locationOfJSON string, pg *state.Postgres) *url {
 	return &url{locationOfJSON: locationOfJSON, pg: pg}
 }
 
+func (r *url) WithTransaction(db *sql.DB, txFunc func(*sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = tx.Rollback()
+		if err != nil {
+			return
+		}
+	}()
+
+	err = txFunc(tx)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 func (r *url) PingPg(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
@@ -223,41 +243,32 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 		return nil
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = tx.Rollback()
-		if err != nil {
-			return
-		}
-	}()
+	return r.WithTransaction(db, func(tx *sql.Tx) error {
+		stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4, $5)")
 
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urlshrt VALUES($1, $2, $3, $4, $5)")
-
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-
-	for _, bElem := range batch {
-		util.GetLogger().Infoln(*bElem)
-	}
-	util.GetLogger().Infoln(len(batch))
-
-	id := ctx.Value(domain.Key("id")).(int64)
-
-	for _, url := range batch {
-		util.GetLogger().Infoln(url.OriginalURL, url.ShortURL)
-		_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL, id, 0)
 		if err != nil {
 			return err
 		}
-	}
 
-	return tx.Commit()
+		defer stmt.Close()
+
+		for _, bElem := range batch {
+			util.GetLogger().Infoln(*bElem)
+		}
+		util.GetLogger().Infoln(len(batch))
+
+		id := ctx.Value(domain.Key("id")).(int64)
+
+		for _, url := range batch {
+			util.GetLogger().Infoln(url.OriginalURL, url.ShortURL)
+			_, err = stmt.ExecContext(ctx, url.UUID, url.ShortURL, url.OriginalURL, id, 0)
+			if err != nil {
+				return err
+			}
+		}
+
+		return tx.Commit()
+	})
 }
 
 func (r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
@@ -308,34 +319,24 @@ func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int6
 
 	util.GetLogger().Infoln(shortURLs)
 
-	tx, err := db.Begin()
-	if err != nil {
-		util.GetLogger().Infoln("err3", err)
-		return err
-	}
-	defer func() {
-		err = tx.Rollback()
+	return r.WithTransaction(db, func(tx *sql.Tx) error {
+		stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE (short, user_id) IN (SELECT unnest($1::text[]), unnest($2::int[]))")
+
 		if err != nil {
-			return
+			util.GetLogger().Infoln("err4", err)
+			return err
 		}
-	}()
 
-	stmt, err := tx.Prepare("UPDATE urlshrt SET is_deleted = 1 WHERE (short, user_id) IN (SELECT unnest($1::text[]), unnest($2::int[]))")
+		defer stmt.Close()
 
-	if err != nil {
-		util.GetLogger().Infoln("err4", err)
-		return err
-	}
+		_, err = stmt.Exec(shortURLs, uid)
+		if err != nil {
+			util.GetLogger().Infoln("err5", err)
+			return err
+		}
 
-	defer stmt.Close()
-
-	_, err = stmt.Exec(shortURLs, uid)
-	if err != nil {
-		util.GetLogger().Infoln("err5", err)
-		return err
-	}
-
-	return tx.Commit()
+		return tx.Commit()
+	})
 }
 
 func (r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
