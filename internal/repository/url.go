@@ -43,6 +43,7 @@ func (r *url) WithTransaction(db *sql.DB, txFunc func(*sql.Tx) error) error {
 
 	err = txFunc(tx)
 	if err != nil {
+		util.GetLogger().Infoln(err)
 		return err
 	}
 
