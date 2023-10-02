@@ -34,3 +34,6 @@ benchmarks/*
 
 # Certificates
 cert/*
+
+# Test config
+conf.json

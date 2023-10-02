@@ -91,16 +91,19 @@ func defineFlags(conf *config.Config) {
 
 func main() {
 	const (
+		defaultFileStorage = "./tmp/short-url-db.json"
+		HTTPPrefix         = "http://"
+		HTTPSPrefix        = "https://"
+		slash              = "/"
+	)
+
+	var (
 		serverAddressEnvName   = "SERVER_ADDRESS"
 		baseURLEnvName         = "BASE_URL"
 		fileStoragePathEnvName = "FILE_STORAGE_PATH"
 		databaseDSNEnvName     = "DATABASE_DSN"
 		enableHTTPSEnvName     = "ENABLE_HTTPS"
 		configFileEnvName      = "CONFIG"
-		defaultFileStorage     = "./tmp/short-url-db.json"
-		HTTPPrefix             = "http://"
-		HTTPSPrefix            = "https://"
-		slash                  = "/"
 	)
 
 	util.PrintVariable(buildVersion, "version")
@@ -113,6 +116,77 @@ func main() {
 	}
 
 	var conf config.Config
+
+	var configWithNamesPath string
+
+	configWithNamesEnv, configWithNamesSet := os.LookupEnv(configFileEnvName)
+	if !configWithNamesSet {
+		defineFlags(&conf)
+		flag.Parse()
+		configWithNamesPath = conf.ConfigFilePath
+	} else {
+		configWithNamesPath = configWithNamesEnv
+	}
+
+	// struct to redefine default env variables names
+	var configWithNames struct {
+		JSONFileEnvName     string `json:"file_storage_path_env,omitempty"`
+		DSNEnvName          string `json:"database_dsn_env,omitempty"`
+		HTTPAddrEnvName     string `json:"server_address_env,omitempty"`
+		ShortAddrEnvName    string `json:"base_url_env,omitempty"`
+		HTTPSEnabledEnvName string `json:"enable_https_env,omitempty"`
+		ConfigEnvName       string `json:"config_env,omitempty"`
+	}
+
+	if configWithNamesPath != "" {
+		file, err := os.Open(configWithNamesPath)
+		if err != nil {
+			util.GetLogger().Infoln("Error opening file:", err)
+			return
+		}
+
+		var content strings.Builder
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			content.Write(scanner.Bytes())
+		}
+
+		if err := scanner.Err(); err != nil {
+			util.GetLogger().Infoln("Error reading file:", err)
+			return
+		}
+
+		err = json.Unmarshal([]byte(content.String()), &configWithNames)
+		if err != nil {
+			util.GetLogger().Infoln("Error unmarshalling JSON:", err)
+			return
+		}
+		file.Close()
+
+		if configWithNames.ConfigEnvName != "" {
+			configFileEnvName = configWithNames.ConfigEnvName
+		}
+
+		if configWithNames.DSNEnvName != "" {
+			databaseDSNEnvName = configWithNames.DSNEnvName
+		}
+
+		if configWithNames.HTTPAddrEnvName != "" {
+			serverAddressEnvName = configWithNames.HTTPAddrEnvName
+		}
+
+		if configWithNames.JSONFileEnvName != "" {
+			fileStoragePathEnvName = configWithNames.JSONFileEnvName
+		}
+
+		if configWithNames.ShortAddrEnvName != "" {
+			baseURLEnvName = configWithNames.ShortAddrEnvName
+		}
+
+		if configWithNames.HTTPSEnabledEnvName != "" {
+			enableHTTPSEnvName = configWithNames.HTTPSEnabledEnvName
+		}
+	}
 
 	// getting values of environment variables
 	httpEnv, httpSet := os.LookupEnv(serverAddressEnvName)
@@ -134,16 +208,10 @@ func main() {
 
 	util.GetLogger().Debugln("serv", httpEnv, httpSet, "out", shortEnv, shortSet)
 
-	defineFlags(&conf)
-
-	// if some of config settings were not set, we need to parse flags
-	if !httpSet || !shortSet || !jsonFileSet || !dsnSet || !secureSet || !configSet {
-		flag.Parse()
-	}
-
-	// if a value was set by environment variable, we do not have to redefine it
+	// if a value was set by environment variable, we have to redefine values in config because it was set by flags before
 	if httpSet {
 		conf.HTTPAddr = config.AddrWithCheck{Addr: httpEnv, WasSet: true}
+		util.GetLogger().Infoln(conf.HTTPAddr)
 	}
 
 	if shortSet {
@@ -314,6 +382,7 @@ func main() {
 	addrToServe = strings.TrimPrefix(addrToServe, HTTPSPrefix)
 	addrToServe = strings.TrimSuffix(addrToServe, slash)
 
+	util.GetLogger().Infoln(addrToServe)
 	server := http.Server{
 		Addr:    addrToServe,
 		Handler: r,
