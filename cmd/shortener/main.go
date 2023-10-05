@@ -66,6 +66,7 @@ func router(pathToRepo string, pg *state.Postgres, wg *sync.WaitGroup) chi.Route
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(wg)))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
 	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once, wg)))
+	r.Get("/api/internal/stats", WrapHandler(uh.ReadAmountOfURLsAndUsers))
 	r.Mount("/debug", mdlwr.Profiler())
 
 	return r

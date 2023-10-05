@@ -364,3 +364,24 @@ func (r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) 
 	}
 	return true, nil
 }
+
+func (r *url) CountURLsAndUsers(ctx context.Context) (int, int, error) {
+	var db *sql.DB
+	var err error
+	var totalURLs, totalUsers int
+
+	if r.pg != nil {
+		db, err = r.pg.GetPgPtr()
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+
+	err = db.QueryRow("SELECT (SELECT COUNT(*) FROM urlshrt WHERE is_deleted = 0) AS total_urls, (SELECT COUNT(DISTINCT user_id) FROM urlshrt WHERE is_deleted = 0) AS total_users").Scan(&totalURLs, &totalUsers)
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return 0, 0, err
+	}
+
+	return totalURLs, totalUsers, err
+}

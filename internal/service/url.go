@@ -252,3 +252,7 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 		}
 	}()
 }
+
+func (s *url) CountURLsAndUsers(ctx context.Context) (int, int, error) {
+	return s.repo.CountURLsAndUsers(ctx)
+}
