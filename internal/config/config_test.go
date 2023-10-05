@@ -16,7 +16,8 @@ func TestAddrWithCheck(t *testing.T) {
 	require.Len(t, a.Addr, 2)
 	require.True(t, a.WasSet)
 
-	c := Config{HTTPAddr: a, ShortAddr: a, JSONFile: "a", DSN: "a", HTTPSEnabled: true, ConfigFilePath: "./config.json"}
+	c := Config{HTTPAddr: a, ShortAddr: a, JSONFile: "a", DSN: "a", HTTPSEnabled: true, ConfigFilePath: "./config.json",
+		TrustedSubnet: "192.168.1.0/24"}
 	require.NotEmpty(t, c)
 
 	str := a.String()

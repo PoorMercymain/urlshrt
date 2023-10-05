@@ -36,7 +36,7 @@ var (
 	buildVersion, buildDate, buildCommit string
 )
 
-func router(pathToRepo string, pg *state.Postgres, wg *sync.WaitGroup) chi.Router {
+func router(pathToRepo string, CIDR string, pg *state.Postgres, wg *sync.WaitGroup) chi.Router {
 	ur := repository.NewURL(pathToRepo, pg)
 	us := service.NewURL(ur)
 	uh := handler.NewURL(us)
@@ -66,7 +66,7 @@ func router(pathToRepo string, pg *state.Postgres, wg *sync.WaitGroup) chi.Route
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(wg)))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
 	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once, wg)))
-	r.Get("/api/internal/stats", WrapHandler(uh.ReadAmountOfURLsAndUsers))
+	r.Get("/api/internal/stats", middleware.CheckCIDR(WrapHandler(uh.ReadAmountOfURLsAndUsers), CIDR))
 	r.Mount("/debug", mdlwr.Profiler())
 
 	return r
@@ -88,6 +88,8 @@ func defineFlags(conf *config.Config) {
 	flag.BoolVar(&conf.HTTPSEnabled, "s", false, "turns https on if not set to false")
 
 	flag.StringVar(&conf.ConfigFilePath, "c", "", "config file path")
+
+	flag.StringVar(&conf.TrustedSubnet, "t", "", "trusted subnet for stats endpoint")
 }
 
 func main() {
@@ -105,6 +107,7 @@ func main() {
 		databaseDSNEnvName     = "DATABASE_DSN"
 		enableHTTPSEnvName     = "ENABLE_HTTPS"
 		configFileEnvName      = "CONFIG"
+		trustedSubnetEnvName   = "TRUSTED_SUBNET"
 	)
 
 	util.PrintVariable(buildVersion, "version")
@@ -131,12 +134,13 @@ func main() {
 
 	// struct to redefine default env variables names
 	var configWithNames struct {
-		JSONFileEnvName     string `json:"file_storage_path_env,omitempty"`
-		DSNEnvName          string `json:"database_dsn_env,omitempty"`
-		HTTPAddrEnvName     string `json:"server_address_env,omitempty"`
-		ShortAddrEnvName    string `json:"base_url_env,omitempty"`
-		HTTPSEnabledEnvName string `json:"enable_https_env,omitempty"`
-		ConfigEnvName       string `json:"config_env,omitempty"`
+		JSONFileEnvName      string `json:"file_storage_path_env,omitempty"`
+		DSNEnvName           string `json:"database_dsn_env,omitempty"`
+		HTTPAddrEnvName      string `json:"server_address_env,omitempty"`
+		ShortAddrEnvName     string `json:"base_url_env,omitempty"`
+		HTTPSEnabledEnvName  string `json:"enable_https_env,omitempty"`
+		ConfigEnvName        string `json:"config_env,omitempty"`
+		TrustedSubnetEnvName string `json:"trusted_subnet_env,omitempty"`
 	}
 
 	if configWithNamesPath != "" {
@@ -187,6 +191,10 @@ func main() {
 		if configWithNames.HTTPSEnabledEnvName != "" {
 			enableHTTPSEnvName = configWithNames.HTTPSEnabledEnvName
 		}
+
+		if configWithNames.TrustedSubnetEnvName != "" {
+			trustedSubnetEnvName = configWithNames.TrustedSubnetEnvName
+		}
 	}
 
 	// getting values of environment variables
@@ -196,6 +204,7 @@ func main() {
 	dsnEnv, dsnSet := os.LookupEnv(databaseDSNEnvName)
 	secureEnv, secureSet := os.LookupEnv(enableHTTPSEnvName)
 	configEnv, configSet := os.LookupEnv(configFileEnvName)
+	trustedSubnetEnv, trustedSubnetSet := os.LookupEnv(trustedSubnetEnvName)
 
 	var boolSecureEnv bool
 	if secureSet {
@@ -235,13 +244,18 @@ func main() {
 		conf.ConfigFilePath = configEnv
 	}
 
+	if trustedSubnetSet {
+		conf.TrustedSubnet = trustedSubnetEnv
+	}
+
 	// required names of settings in a config file are not the same as in config struct, so we need another one which is rawConfig
 	var rawConfig struct {
-		JSONFile     string `json:"file_storage_path,omitempty"`
-		DSN          string `json:"database_dsn,omitempty"`
-		HTTPAddr     string `json:"server_address,omitempty"`
-		ShortAddr    string `json:"base_url,omitempty"`
-		HTTPSEnabled bool   `json:"enable_https,omitempty"`
+		JSONFile      string `json:"file_storage_path,omitempty"`
+		DSN           string `json:"database_dsn,omitempty"`
+		HTTPAddr      string `json:"server_address,omitempty"`
+		ShortAddr     string `json:"base_url,omitempty"`
+		HTTPSEnabled  bool   `json:"enable_https,omitempty"`
+		TrustedSubnet string `json:"trusted_subnet,omitempty"`
 	}
 
 	if conf.ConfigFilePath != "" {
@@ -301,6 +315,10 @@ func main() {
 		if !conf.HTTPSEnabled {
 			conf.HTTPSEnabled = rawConfig.HTTPSEnabled
 		}
+
+		if conf.TrustedSubnet == "" {
+			conf.TrustedSubnet = rawConfig.TrustedSubnet
+		}
 	}
 
 	// creating a postgres struct
@@ -357,7 +375,7 @@ func main() {
 	// background without using network, so we could wait for them to shut down gracefully
 	var wg sync.WaitGroup
 
-	r := router(conf.JSONFile, pg, &wg)
+	r := router(conf.JSONFile, conf.TrustedSubnet, pg, &wg)
 
 	var m *autocert.Manager
 

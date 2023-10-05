@@ -9,6 +9,7 @@ type Config struct {
 	ShortAddr      AddrWithCheck
 	HTTPSEnabled   bool
 	ConfigFilePath string
+	TrustedSubnet  string
 }
 
 // AddrWithCheck is a type which represents address and adiitional variable to check if the address was set.
