@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "./api";
+
+service Urlshrt {
+  rpc ReadOriginal(ReadOriginalRequest) returns (ReadOriginalReply) {}
+  rpc CreateShortened(CreateShortenedRequest) returns (CreateShortenedReply) {}
+  rpc CreateShortenedFromBatch(CreateShortenedFromBatchRequest) returns (CreateShortenedFromBatchReply) {}
+  rpc ReadUserURLs(Empty) returns (ReadUserURLsReply) {}
+  rpc ReadAmountOfURLsAndUsers(Empty) returns (ReadAmountOfURLsAndUsersReply) {}
+  rpc DeleteUserURLs(DeleteUserURLsRequest) returns (Empty) {}
+}
+
+message Empty {}
+
+message ReadOriginalRequest {
+  string shortened = 1;
+}
+
+message ReadOriginalReply {
+  string original = 1;
+}
+
+message CreateShortenedRequest {
+  string original = 1;
+}
+
+message CreateShortenedReply {
+  string shortened = 1;
+}
+
+message CreateShortenedFromBatchRequest {
+  repeated OriginalWithCorrelation original = 1;
+}
+
+message OriginalWithCorrelation {
+  string original = 1;
+  string correlation = 2;
+}
+
+message CreateShortenedFromBatchReply {
+  repeated ShortenedWithCorrelation shortened = 1;
+}
+
+message ShortenedWithCorrelation {
+  string shortened = 1;
+  string correlation = 2;
+}
+
+message ReadUserURLsReply {
+  repeated OriginalWithShortened original_with_shortened = 1;
+}
+
+message OriginalWithShortened {
+  string original = 1;
+  string shortened = 2;
+}
+
+message ReadAmountOfURLsAndUsersReply {
+  int64 urls_amount = 1;
+  int64 users_amount = 2;
+}
+
+message DeleteUserURLsRequest {
+  repeated string urls_to_delete = 1;
+}

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +17,11 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+
+	"github.com/PoorMercymain/urlshrt/pkg/api"
 
 	_ "net/http/pprof"
 
@@ -36,9 +43,7 @@ var (
 	buildVersion, buildDate, buildCommit string
 )
 
-func router(pathToRepo string, CIDR string, pg *state.Postgres, wg *sync.WaitGroup) chi.Router {
-	ur := repository.NewURL(pathToRepo, pg)
-	us := service.NewURL(ur)
+func router(us *service.URL, ur *repository.URL, CIDR string, shortURLsChan *domain.MutexChanString, wg *sync.WaitGroup, once *sync.Once) chi.Router {
 	uh := handler.NewURL(us)
 
 	urls, err := ur.ReadAll(context.Background())
@@ -53,11 +58,10 @@ func router(pathToRepo string, CIDR string, pg *state.Postgres, wg *sync.WaitGro
 	}
 
 	state.InitCurrentURLs(&urlsMap)
+	m, _ := state.GetCurrentURLsPtr()
+	util.GetLogger().Infoln(m.Urls)
 
 	r := chi.NewRouter()
-
-	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
-	var once sync.Once
 
 	r.Post("/", WrapHandler(uh.CreateShortened))
 	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
@@ -65,7 +69,7 @@ func router(pathToRepo string, CIDR string, pg *state.Postgres, wg *sync.WaitGro
 	r.Get("/ping", WrapHandler(uh.PingPg))
 	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(wg)))
 	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
-	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, &once, wg)))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, once, wg)))
 	r.Get("/api/internal/stats", middleware.CheckCIDR(WrapHandler(uh.ReadAmountOfURLsAndUsers), CIDR))
 	r.Mount("/debug", mdlwr.Profiler())
 
@@ -374,8 +378,13 @@ func main() {
 	// WaitGroup is required for handlers which can create goroutines working in
 	// background without using network, so we could wait for them to shut down gracefully
 	var wg sync.WaitGroup
+	var once sync.Once
 
-	r := router(conf.JSONFile, conf.TrustedSubnet, pg, &wg)
+	ur := repository.NewURL(conf.JSONFile, pg)
+	us := service.NewURL(ur)
+
+	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
+	r := router(us, ur, conf.TrustedSubnet, shortURLsChan, &wg, &once)
 
 	var m *autocert.Manager
 
@@ -407,6 +416,32 @@ func main() {
 		Handler: r,
 	}
 
+	// TODO get from config
+	listenerGRPC, err := net.Listen("tcp", addrToServe+"1")
+	if err != nil {
+		util.GetLogger().Infoln("failed to listen:", err)
+		return
+	}
+
+	// certificate and key paths (you should get them before starting the service,
+	// but if you use provided makefile, it shall get them for you)
+	const certPath = "cert/localhost.crt"
+	const keyPath = "cert/localhost.key"
+
+	var grpcServer *grpc.Server
+	if conf.HTTPSEnabled {
+		creds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+		if err != nil {
+			log.Fatalf("Failed to setup tls: %v", err)
+		}
+		grpcServer = grpc.NewServer(grpc.Creds(creds))
+	} else {
+		grpcServer = grpc.NewServer()
+	}
+
+	helloServer := &handler.Server{Wg: &wg, Once: &once, Srv: us, ShortURLsChan: shortURLsChan}
+	api.RegisterUrlshrtServer(grpcServer, helloServer)
+
 	// channel to intercept signals for graceful shutdown
 	c := make(chan os.Signal, 1)
 	ret := make(chan struct{}, 1)
@@ -416,10 +451,6 @@ func main() {
 		ret <- struct{}{}
 	}()
 
-	// certificate and key paths (you should get them before starting the service,
-	// but if you use provided makefile, it shall get them for you)
-	const certPath = "cert/localhost.crt"
-	const keyPath = "cert/localhost.key"
 	go func() {
 		if conf.HTTPSEnabled {
 			err = server.ListenAndServeTLS(certPath, keyPath)
@@ -427,6 +458,16 @@ func main() {
 			err = server.ListenAndServe()
 		}
 
+		if err != nil {
+			util.GetLogger().Error(err)
+			ret <- struct{}{}
+		}
+	}()
+
+	go func() {
+		ma, _ := state.GetCurrentURLsPtr()
+		util.GetLogger().Infoln(ma.Urls)
+		err = grpcServer.Serve(listenerGRPC)
 		if err != nil {
 			util.GetLogger().Error(err)
 			ret <- struct{}{}
@@ -458,6 +499,7 @@ func main() {
 	// waiting for goroutines which are not using network to finish their jobs
 	wg.Wait()
 
+	grpcServer.GracefulStop()
 	// waiting for shutdown to finish
 	<-shutdownCtx.Done()
 	util.GetLogger().Debugln("shutdownCtx done:", shutdownCtx.Err().Error())

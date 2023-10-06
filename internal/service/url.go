@@ -13,24 +13,24 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
-type url struct {
+type URL struct {
 	repo domain.URLRepository
 }
 
-func NewURL(repo domain.URLRepository) *url {
-	return &url{repo: repo}
+func NewURL(repo domain.URLRepository) *URL {
+	return &URL{repo: repo}
 }
 
-func (s *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
+func (s *URL) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 	return s.repo.ReadUserURLs(ctx)
 }
 
-func (s *url) PingPg(ctx context.Context) error {
+func (s *URL) PingPg(ctx context.Context) error {
 	return s.repo.PingPg(ctx)
 }
 
 // CreateShortenedFromBatch creates shorten URLs from batch elements and calls repository level to save it to database.
-func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.BatchElement, wg *sync.WaitGroup) ([]domain.BatchElementResult, error) {
+func (s *URL) CreateShortenedFromBatch(ctx context.Context, batch []*domain.BatchElement, wg *sync.WaitGroup) ([]domain.BatchElementResult, error) {
 	wg.Add(1)
 	defer wg.Done()
 
@@ -58,7 +58,9 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 	}
 
 	var uuidShift int
+	util.GetLogger().Infoln(batch)
 	for j, batchURL := range batch {
+		util.GetLogger().Infoln("ok", batchURL)
 		if foundURL, ok := (*curURLsPtr.Urls)[batchURL.OriginalURL]; ok {
 			batch[j].ShortenedURL = foundURL.ShortURL
 		} else {
@@ -104,7 +106,7 @@ func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.Batc
 }
 
 // ReadOriginal gets original URL using shortened.
-func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error) {
+func (s *URL) ReadOriginal(ctx context.Context, shortened string, errChan chan error) (string, error) {
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
 		return "", err
@@ -124,14 +126,14 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan e
 		util.GetLogger().Infoln(err)
 		return "", err
 	} else {
-		errDeleted := errors.New("the requested url was deleted")
+		errDeleted := errors.New("the requested URL was deleted")
 		errChan <- errDeleted
 		return "", errDeleted
 	}
 }
 
 // CreateShortened creates shorten URL and calls repository level to save it to database.
-func (s *url) CreateShortened(ctx context.Context, original string) (string, error) {
+func (s *URL) CreateShortened(ctx context.Context, original string) (string, error) {
 	var random *rand.Rand
 	if rSeed := ctx.Value(domain.Key("seed")); rSeed != nil {
 		util.GetLogger().Infoln(rSeed)
@@ -183,7 +185,7 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	return shortenedURL, nil
 }
 
-func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once, wg *sync.WaitGroup) {
+func (s *URL) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once, wg *sync.WaitGroup) {
 	shortURLs := struct {
 		URLs []string
 		uid  []int64
@@ -253,6 +255,6 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 	}()
 }
 
-func (s *url) CountURLsAndUsers(ctx context.Context) (int, int, error) {
+func (s *URL) CountURLsAndUsers(ctx context.Context) (int, int, error) {
 	return s.repo.CountURLsAndUsers(ctx)
 }

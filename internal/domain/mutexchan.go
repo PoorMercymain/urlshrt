@@ -3,7 +3,7 @@ package domain
 import "sync"
 
 // MutexChanString is a type that represents a channel with mutex.
-type MutexChanString struct {
+type MutexChanString struct { // actually, channels are safe for concurrent execution, so the type is cringy, but I'll keep it for now just to make sure that something won't stop working
 	Channel chan URLWithID
 	*sync.Mutex
 }
