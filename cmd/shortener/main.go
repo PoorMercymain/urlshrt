@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/PoorMercymain/urlshrt/internal/interceptor"
 	"log"
 	"net"
 	"net/http"
@@ -434,9 +435,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to setup tls: %v", err)
 		}
-		grpcServer = grpc.NewServer(grpc.Creds(creds))
+		grpcServer = grpc.NewServer(grpc.Creds(creds), grpc.ChainUnaryInterceptor(interceptor.Authorize))
 	} else {
-		grpcServer = grpc.NewServer()
+		grpcServer = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Authorize))
 	}
 
 	helloServer := &handler.Server{Wg: &wg, Once: &once, Srv: us, ShortURLsChan: shortURLsChan}
