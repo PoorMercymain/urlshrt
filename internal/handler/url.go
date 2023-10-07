@@ -101,7 +101,10 @@ func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	if err != nil && errors.As(err, &uErr) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(addr + shortenedURL))
+		_, err = w.Write([]byte(addr + shortenedURL))
+		if err != nil {
+			return
+		}
 		return
 	} else if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -110,7 +113,10 @@ func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(addr + shortenedURL))
+	_, err = w.Write([]byte(addr + shortenedURL))
+	if err != nil {
+		return
+	}
 }
 
 // CreateShortenedFromJSON - handler to create short URL from original which is in JSON.
@@ -159,54 +165,62 @@ func (h *URL) CreateShortenedFromJSON(w http.ResponseWriter, r *http.Request) {
 		util.GetLogger().Errorln(err)
 		return
 	}
-	w.Write(buf.Bytes())
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		return
+	}
 }
 
-// CreateShortenedFromBatch - handler to create shortened URLs from batch in JSON.
-func (h *URL) CreateShortenedFromBatch(w http.ResponseWriter, r *http.Request) {
-	orig := make([]*domain.BatchElement, 0, 1)
+// CreateShortenedFromBatchAdapter - adapter for handler to create shortened URLs from batch in JSON.
+func (h *URL) CreateShortenedFromBatchAdapter(wg *sync.WaitGroup) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orig := make([]*domain.BatchElement, 0, 1)
 
-	if !IsJSONContentTypeCorrect(r) {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		if !IsJSONContentTypeCorrect(r) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if len(orig) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), orig, wg)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		var shortenedJSONBytes []byte
+		buf := bytes.NewBuffer(shortenedJSONBytes)
+
+		addr := state.GetBaseShortAddress()
+		if addr[len(addr)-1] != '/' {
+			addr = addr + "/"
+		}
+
+		for i, shrt := range shortened {
+			shortened[i].ShortenedURL = addr + shrt.ShortenedURL
+		}
+
+		err = json.NewEncoder(buf).Encode(shortened)
+		if err != nil {
+			util.GetLogger().Errorln(err)
+			return
+		}
+		_, err = w.Write(buf.Bytes())
+		if err != nil {
+			return
+		}
 	}
-
-	if err := json.NewDecoder(r.Body).Decode(&orig); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if len(orig) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	shortened, err := h.srv.CreateShortenedFromBatch(r.Context(), orig)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	var shortenedJSONBytes []byte
-	buf := bytes.NewBuffer(shortenedJSONBytes)
-
-	addr := state.GetBaseShortAddress()
-	if addr[len(addr)-1] != '/' {
-		addr = addr + "/"
-	}
-
-	for i, shrt := range shortened {
-		shortened[i].ShortenedURL = addr + shrt.ShortenedURL
-	}
-
-	err = json.NewEncoder(buf).Encode(shortened)
-	if err != nil {
-		util.GetLogger().Errorln(err)
-		return
-	}
-	w.Write(buf.Bytes())
 }
 
 // ReadUserURLs - handler to get all user's URLs.
@@ -257,11 +271,14 @@ func (h *URL) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 		util.GetLogger().Errorln(err)
 		return
 	}
-	w.Write(buf.Bytes())
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		return
+	}
 }
 
 // DeleteUserURLsAdapter - adapter for closure function to mark URL as deleted.
-func (h *URL) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once) http.HandlerFunc {
+func (h *URL) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once, wg *sync.WaitGroup) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		short := make([]string, 0, 1)
 
@@ -289,7 +306,7 @@ func (h *URL) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once 
 		}
 
 		go func() {
-			h.srv.DeleteUserURLs(r.Context(), shortURLWithID, shortURLsChan, once)
+			h.srv.DeleteUserURLs(r.Context(), shortURLWithID, shortURLsChan, once, wg)
 		}()
 
 		w.WriteHeader(http.StatusAccepted)

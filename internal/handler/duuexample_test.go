@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,7 +16,9 @@ func routerExampleDeleteUserURLs() chi.Router {
 
 	uh := NewURL(us)
 
-	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(nil, nil)))
+	var wg sync.WaitGroup
+
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(nil, nil, &wg)))
 
 	return r
 }

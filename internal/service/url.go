@@ -26,13 +26,14 @@ func (s *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 }
 
 func (s *url) PingPg(ctx context.Context) error {
-	err := s.repo.PingPg(ctx)
-	//util.GetLogger().Infoln("~~~", err, "~~~")
-	return err
+	return s.repo.PingPg(ctx)
 }
 
 // CreateShortenedFromBatch creates shorten URLs from batch elements and calls repository level to save it to database.
-func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.BatchElement) ([]domain.BatchElementResult, error) {
+func (s *url) CreateShortenedFromBatch(ctx context.Context, batch []*domain.BatchElement, wg *sync.WaitGroup) ([]domain.BatchElementResult, error) {
+	wg.Add(1)
+	defer wg.Done()
+
 	curURLsPtr, err := state.GetCurrentURLsPtr()
 	if err != nil {
 		return nil, err
@@ -119,6 +120,9 @@ func (s *url) ReadOriginal(ctx context.Context, shortened string, errChan chan e
 			}
 		}
 		return "", errors.New("no such value")
+	} else if err != nil {
+		util.GetLogger().Infoln(err)
+		return "", err
 	} else {
 		errDeleted := errors.New("the requested url was deleted")
 		errChan <- errDeleted
@@ -179,7 +183,7 @@ func (s *url) CreateShortened(ctx context.Context, original string) (string, err
 	return shortenedURL, nil
 }
 
-func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once) {
+func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shortURLsChan *domain.MutexChanString, once *sync.Once, wg *sync.WaitGroup) {
 	shortURLs := struct {
 		URLs []string
 		uid  []int64
@@ -199,21 +203,31 @@ func (s *url) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 					shortURLs.Lock()
 					shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
 					shortURLs.uid = append(shortURLs.uid, shrt.ID)
+					wg.Add(1)
 					for len(shortURLsChan.Channel) > 0 {
 						shrt = <-shortURLsChan.Channel
 						shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
 						util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
 						shortURLs.uid = append(shortURLs.uid, shrt.ID)
 						util.GetLogger().Infoln("добавил", shrt)
+						wg.Add(1)
 					}
 					shortURLs.Unlock()
 				default:
 					if len(shortURLs.URLs) >= 10 || (time.Since(timer) > time.Millisecond*450) && len(shortURLs.URLs) > 0 {
 						util.GetLogger().Infoln("удаляю...", shortURLs.URLs)
 						deleteErr = s.repo.DeleteUserURLs(ctx, shortURLs.URLs, shortURLs.uid)
-						util.GetLogger().Infoln(deleteErr)
+						if deleteErr != nil {
+							util.GetLogger().Infoln(deleteErr)
+						}
 						g, erro := s.repo.IsURLDeleted(ctx, shortURLs.URLs[0])
-						util.GetLogger().Infoln("удалил ли? вот ответ -", g, erro)
+						for range shortURLs.uid {
+							wg.Done()
+						}
+						util.GetLogger().Infoln("удалил ли? вот ответ -", g)
+						if erro != nil {
+							util.GetLogger().Infoln(erro)
+						}
 						shortURLs.Lock()
 						shortURLs.URLs = shortURLs.URLs[:0]
 						shortURLs.uid = shortURLs.uid[:0]

@@ -24,6 +24,8 @@ jobs:
 
             - name: Run golangci-lint
               uses: golangci/golangci-lint-action@v3.6.0
+              with:
+                args: --verbose --print-issued-lines
 
             - name: Format
               run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
