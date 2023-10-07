@@ -17,7 +17,7 @@ func TestAddrWithCheck(t *testing.T) {
 	require.True(t, a.WasSet)
 
 	c := Config{HTTPAddr: a, ShortAddr: a, JSONFile: "a", DSN: "a", HTTPSEnabled: true, ConfigFilePath: "./config.json",
-		TrustedSubnet: "192.168.1.0/24"}
+		TrustedSubnet: "192.168.1.0/24", JWTKey: "abc", GRPCAddr: "a", GRPCSecureEnabled: true}
 	require.NotEmpty(t, c)
 
 	str := a.String()

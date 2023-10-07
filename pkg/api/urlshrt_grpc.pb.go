@@ -12,6 +12,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,266 +20,278 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// UrlshrtClient is the client API for Urlshrt service.
+// UrlshrtV1Client is the client API for UrlshrtV1 service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type UrlshrtClient interface {
-	ReadOriginal(ctx context.Context, in *ReadOriginalRequest, opts ...grpc.CallOption) (*ReadOriginalReply, error)
-	CreateShortened(ctx context.Context, in *CreateShortenedRequest, opts ...grpc.CallOption) (*CreateShortenedReply, error)
-	CreateShortenedFromBatch(ctx context.Context, in *CreateShortenedFromBatchRequest, opts ...grpc.CallOption) (*CreateShortenedFromBatchReply, error)
-	ReadUserURLs(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ReadUserURLsReply, error)
-	ReadAmountOfURLsAndUsers(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ReadAmountOfURLsAndUsersReply, error)
-	DeleteUserURLs(ctx context.Context, in *DeleteUserURLsRequest, opts ...grpc.CallOption) (*Empty, error)
+type UrlshrtV1Client interface {
+	// read original url providing shortened
+	ReadOriginalV1(ctx context.Context, in *ReadOriginalRequestV1, opts ...grpc.CallOption) (*ReadOriginalReplyV1, error)
+	// create shortened url from original
+	CreateShortenedV1(ctx context.Context, in *CreateShortenedRequestV1, opts ...grpc.CallOption) (*CreateShortenedReplyV1, error)
+	// create shortened urls providing batch of original urls with correlation ids
+	CreateShortenedFromBatchV1(ctx context.Context, in *CreateShortenedFromBatchRequestV1, opts ...grpc.CallOption) (*CreateShortenedFromBatchReplyV1, error)
+	// read all current user's urls
+	ReadUserURLsV1(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ReadUserURLsReplyV1, error)
+	// read amount of urls and users, excluding deleted urls and those users, who have deleted all their urls
+	ReadAmountOfURLsAndUsersV1(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ReadAmountOfURLsAndUsersReplyV1, error)
+	// delete user's urls providing their short versions without host
+	DeleteUserURLsV1(ctx context.Context, in *DeleteUserURLsRequestV1, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type urlshrtClient struct {
+type urlshrtV1Client struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewUrlshrtClient(cc grpc.ClientConnInterface) UrlshrtClient {
-	return &urlshrtClient{cc}
+func NewUrlshrtV1Client(cc grpc.ClientConnInterface) UrlshrtV1Client {
+	return &urlshrtV1Client{cc}
 }
 
-func (c *urlshrtClient) ReadOriginal(ctx context.Context, in *ReadOriginalRequest, opts ...grpc.CallOption) (*ReadOriginalReply, error) {
-	out := new(ReadOriginalReply)
-	err := c.cc.Invoke(ctx, "/api.Urlshrt/ReadOriginal", in, out, opts...)
+func (c *urlshrtV1Client) ReadOriginalV1(ctx context.Context, in *ReadOriginalRequestV1, opts ...grpc.CallOption) (*ReadOriginalReplyV1, error) {
+	out := new(ReadOriginalReplyV1)
+	err := c.cc.Invoke(ctx, "/api.v1.UrlshrtV1/ReadOriginalV1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *urlshrtClient) CreateShortened(ctx context.Context, in *CreateShortenedRequest, opts ...grpc.CallOption) (*CreateShortenedReply, error) {
-	out := new(CreateShortenedReply)
-	err := c.cc.Invoke(ctx, "/api.Urlshrt/CreateShortened", in, out, opts...)
+func (c *urlshrtV1Client) CreateShortenedV1(ctx context.Context, in *CreateShortenedRequestV1, opts ...grpc.CallOption) (*CreateShortenedReplyV1, error) {
+	out := new(CreateShortenedReplyV1)
+	err := c.cc.Invoke(ctx, "/api.v1.UrlshrtV1/CreateShortenedV1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *urlshrtClient) CreateShortenedFromBatch(ctx context.Context, in *CreateShortenedFromBatchRequest, opts ...grpc.CallOption) (*CreateShortenedFromBatchReply, error) {
-	out := new(CreateShortenedFromBatchReply)
-	err := c.cc.Invoke(ctx, "/api.Urlshrt/CreateShortenedFromBatch", in, out, opts...)
+func (c *urlshrtV1Client) CreateShortenedFromBatchV1(ctx context.Context, in *CreateShortenedFromBatchRequestV1, opts ...grpc.CallOption) (*CreateShortenedFromBatchReplyV1, error) {
+	out := new(CreateShortenedFromBatchReplyV1)
+	err := c.cc.Invoke(ctx, "/api.v1.UrlshrtV1/CreateShortenedFromBatchV1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *urlshrtClient) ReadUserURLs(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ReadUserURLsReply, error) {
-	out := new(ReadUserURLsReply)
-	err := c.cc.Invoke(ctx, "/api.Urlshrt/ReadUserURLs", in, out, opts...)
+func (c *urlshrtV1Client) ReadUserURLsV1(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ReadUserURLsReplyV1, error) {
+	out := new(ReadUserURLsReplyV1)
+	err := c.cc.Invoke(ctx, "/api.v1.UrlshrtV1/ReadUserURLsV1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *urlshrtClient) ReadAmountOfURLsAndUsers(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ReadAmountOfURLsAndUsersReply, error) {
-	out := new(ReadAmountOfURLsAndUsersReply)
-	err := c.cc.Invoke(ctx, "/api.Urlshrt/ReadAmountOfURLsAndUsers", in, out, opts...)
+func (c *urlshrtV1Client) ReadAmountOfURLsAndUsersV1(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ReadAmountOfURLsAndUsersReplyV1, error) {
+	out := new(ReadAmountOfURLsAndUsersReplyV1)
+	err := c.cc.Invoke(ctx, "/api.v1.UrlshrtV1/ReadAmountOfURLsAndUsersV1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *urlshrtClient) DeleteUserURLs(ctx context.Context, in *DeleteUserURLsRequest, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/api.Urlshrt/DeleteUserURLs", in, out, opts...)
+func (c *urlshrtV1Client) DeleteUserURLsV1(ctx context.Context, in *DeleteUserURLsRequestV1, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/api.v1.UrlshrtV1/DeleteUserURLsV1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// UrlshrtServer is the server API for Urlshrt service.
-// All implementations must embed UnimplementedUrlshrtServer
+// UrlshrtV1Server is the server API for UrlshrtV1 service.
+// All implementations must embed UnimplementedUrlshrtV1Server
 // for forward compatibility
-type UrlshrtServer interface {
-	ReadOriginal(context.Context, *ReadOriginalRequest) (*ReadOriginalReply, error)
-	CreateShortened(context.Context, *CreateShortenedRequest) (*CreateShortenedReply, error)
-	CreateShortenedFromBatch(context.Context, *CreateShortenedFromBatchRequest) (*CreateShortenedFromBatchReply, error)
-	ReadUserURLs(context.Context, *Empty) (*ReadUserURLsReply, error)
-	ReadAmountOfURLsAndUsers(context.Context, *Empty) (*ReadAmountOfURLsAndUsersReply, error)
-	DeleteUserURLs(context.Context, *DeleteUserURLsRequest) (*Empty, error)
-	mustEmbedUnimplementedUrlshrtServer()
+type UrlshrtV1Server interface {
+	// read original url providing shortened
+	ReadOriginalV1(context.Context, *ReadOriginalRequestV1) (*ReadOriginalReplyV1, error)
+	// create shortened url from original
+	CreateShortenedV1(context.Context, *CreateShortenedRequestV1) (*CreateShortenedReplyV1, error)
+	// create shortened urls providing batch of original urls with correlation ids
+	CreateShortenedFromBatchV1(context.Context, *CreateShortenedFromBatchRequestV1) (*CreateShortenedFromBatchReplyV1, error)
+	// read all current user's urls
+	ReadUserURLsV1(context.Context, *emptypb.Empty) (*ReadUserURLsReplyV1, error)
+	// read amount of urls and users, excluding deleted urls and those users, who have deleted all their urls
+	ReadAmountOfURLsAndUsersV1(context.Context, *emptypb.Empty) (*ReadAmountOfURLsAndUsersReplyV1, error)
+	// delete user's urls providing their short versions without host
+	DeleteUserURLsV1(context.Context, *DeleteUserURLsRequestV1) (*emptypb.Empty, error)
+	mustEmbedUnimplementedUrlshrtV1Server()
 }
 
-// UnimplementedUrlshrtServer must be embedded to have forward compatible implementations.
-type UnimplementedUrlshrtServer struct {
+// UnimplementedUrlshrtV1Server must be embedded to have forward compatible implementations.
+type UnimplementedUrlshrtV1Server struct {
 }
 
-func (UnimplementedUrlshrtServer) ReadOriginal(context.Context, *ReadOriginalRequest) (*ReadOriginalReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadOriginal not implemented")
+func (UnimplementedUrlshrtV1Server) ReadOriginalV1(context.Context, *ReadOriginalRequestV1) (*ReadOriginalReplyV1, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadOriginalV1 not implemented")
 }
-func (UnimplementedUrlshrtServer) CreateShortened(context.Context, *CreateShortenedRequest) (*CreateShortenedReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateShortened not implemented")
+func (UnimplementedUrlshrtV1Server) CreateShortenedV1(context.Context, *CreateShortenedRequestV1) (*CreateShortenedReplyV1, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateShortenedV1 not implemented")
 }
-func (UnimplementedUrlshrtServer) CreateShortenedFromBatch(context.Context, *CreateShortenedFromBatchRequest) (*CreateShortenedFromBatchReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateShortenedFromBatch not implemented")
+func (UnimplementedUrlshrtV1Server) CreateShortenedFromBatchV1(context.Context, *CreateShortenedFromBatchRequestV1) (*CreateShortenedFromBatchReplyV1, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateShortenedFromBatchV1 not implemented")
 }
-func (UnimplementedUrlshrtServer) ReadUserURLs(context.Context, *Empty) (*ReadUserURLsReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadUserURLs not implemented")
+func (UnimplementedUrlshrtV1Server) ReadUserURLsV1(context.Context, *emptypb.Empty) (*ReadUserURLsReplyV1, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadUserURLsV1 not implemented")
 }
-func (UnimplementedUrlshrtServer) ReadAmountOfURLsAndUsers(context.Context, *Empty) (*ReadAmountOfURLsAndUsersReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadAmountOfURLsAndUsers not implemented")
+func (UnimplementedUrlshrtV1Server) ReadAmountOfURLsAndUsersV1(context.Context, *emptypb.Empty) (*ReadAmountOfURLsAndUsersReplyV1, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadAmountOfURLsAndUsersV1 not implemented")
 }
-func (UnimplementedUrlshrtServer) DeleteUserURLs(context.Context, *DeleteUserURLsRequest) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserURLs not implemented")
+func (UnimplementedUrlshrtV1Server) DeleteUserURLsV1(context.Context, *DeleteUserURLsRequestV1) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserURLsV1 not implemented")
 }
-func (UnimplementedUrlshrtServer) mustEmbedUnimplementedUrlshrtServer() {}
+func (UnimplementedUrlshrtV1Server) mustEmbedUnimplementedUrlshrtV1Server() {}
 
-// UnsafeUrlshrtServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to UrlshrtServer will
+// UnsafeUrlshrtV1Server may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to UrlshrtV1Server will
 // result in compilation errors.
-type UnsafeUrlshrtServer interface {
-	mustEmbedUnimplementedUrlshrtServer()
+type UnsafeUrlshrtV1Server interface {
+	mustEmbedUnimplementedUrlshrtV1Server()
 }
 
-func RegisterUrlshrtServer(s grpc.ServiceRegistrar, srv UrlshrtServer) {
-	s.RegisterService(&Urlshrt_ServiceDesc, srv)
+func RegisterUrlshrtV1Server(s grpc.ServiceRegistrar, srv UrlshrtV1Server) {
+	s.RegisterService(&UrlshrtV1_ServiceDesc, srv)
 }
 
-func _Urlshrt_ReadOriginal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReadOriginalRequest)
+func _UrlshrtV1_ReadOriginalV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadOriginalRequestV1)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UrlshrtServer).ReadOriginal(ctx, in)
+		return srv.(UrlshrtV1Server).ReadOriginalV1(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Urlshrt/ReadOriginal",
+		FullMethod: "/api.v1.UrlshrtV1/ReadOriginalV1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UrlshrtServer).ReadOriginal(ctx, req.(*ReadOriginalRequest))
+		return srv.(UrlshrtV1Server).ReadOriginalV1(ctx, req.(*ReadOriginalRequestV1))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Urlshrt_CreateShortened_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateShortenedRequest)
+func _UrlshrtV1_CreateShortenedV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShortenedRequestV1)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UrlshrtServer).CreateShortened(ctx, in)
+		return srv.(UrlshrtV1Server).CreateShortenedV1(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Urlshrt/CreateShortened",
+		FullMethod: "/api.v1.UrlshrtV1/CreateShortenedV1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UrlshrtServer).CreateShortened(ctx, req.(*CreateShortenedRequest))
+		return srv.(UrlshrtV1Server).CreateShortenedV1(ctx, req.(*CreateShortenedRequestV1))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Urlshrt_CreateShortenedFromBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateShortenedFromBatchRequest)
+func _UrlshrtV1_CreateShortenedFromBatchV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShortenedFromBatchRequestV1)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UrlshrtServer).CreateShortenedFromBatch(ctx, in)
+		return srv.(UrlshrtV1Server).CreateShortenedFromBatchV1(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Urlshrt/CreateShortenedFromBatch",
+		FullMethod: "/api.v1.UrlshrtV1/CreateShortenedFromBatchV1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UrlshrtServer).CreateShortenedFromBatch(ctx, req.(*CreateShortenedFromBatchRequest))
+		return srv.(UrlshrtV1Server).CreateShortenedFromBatchV1(ctx, req.(*CreateShortenedFromBatchRequestV1))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Urlshrt_ReadUserURLs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+func _UrlshrtV1_ReadUserURLsV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UrlshrtServer).ReadUserURLs(ctx, in)
+		return srv.(UrlshrtV1Server).ReadUserURLsV1(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Urlshrt/ReadUserURLs",
+		FullMethod: "/api.v1.UrlshrtV1/ReadUserURLsV1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UrlshrtServer).ReadUserURLs(ctx, req.(*Empty))
+		return srv.(UrlshrtV1Server).ReadUserURLsV1(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Urlshrt_ReadAmountOfURLsAndUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+func _UrlshrtV1_ReadAmountOfURLsAndUsersV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UrlshrtServer).ReadAmountOfURLsAndUsers(ctx, in)
+		return srv.(UrlshrtV1Server).ReadAmountOfURLsAndUsersV1(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Urlshrt/ReadAmountOfURLsAndUsers",
+		FullMethod: "/api.v1.UrlshrtV1/ReadAmountOfURLsAndUsersV1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UrlshrtServer).ReadAmountOfURLsAndUsers(ctx, req.(*Empty))
+		return srv.(UrlshrtV1Server).ReadAmountOfURLsAndUsersV1(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Urlshrt_DeleteUserURLs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteUserURLsRequest)
+func _UrlshrtV1_DeleteUserURLsV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteUserURLsRequestV1)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UrlshrtServer).DeleteUserURLs(ctx, in)
+		return srv.(UrlshrtV1Server).DeleteUserURLsV1(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Urlshrt/DeleteUserURLs",
+		FullMethod: "/api.v1.UrlshrtV1/DeleteUserURLsV1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UrlshrtServer).DeleteUserURLs(ctx, req.(*DeleteUserURLsRequest))
+		return srv.(UrlshrtV1Server).DeleteUserURLsV1(ctx, req.(*DeleteUserURLsRequestV1))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Urlshrt_ServiceDesc is the grpc.ServiceDesc for Urlshrt service.
+// UrlshrtV1_ServiceDesc is the grpc.ServiceDesc for UrlshrtV1 service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Urlshrt_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.Urlshrt",
-	HandlerType: (*UrlshrtServer)(nil),
+var UrlshrtV1_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.UrlshrtV1",
+	HandlerType: (*UrlshrtV1Server)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ReadOriginal",
-			Handler:    _Urlshrt_ReadOriginal_Handler,
+			MethodName: "ReadOriginalV1",
+			Handler:    _UrlshrtV1_ReadOriginalV1_Handler,
 		},
 		{
-			MethodName: "CreateShortened",
-			Handler:    _Urlshrt_CreateShortened_Handler,
+			MethodName: "CreateShortenedV1",
+			Handler:    _UrlshrtV1_CreateShortenedV1_Handler,
 		},
 		{
-			MethodName: "CreateShortenedFromBatch",
-			Handler:    _Urlshrt_CreateShortenedFromBatch_Handler,
+			MethodName: "CreateShortenedFromBatchV1",
+			Handler:    _UrlshrtV1_CreateShortenedFromBatchV1_Handler,
 		},
 		{
-			MethodName: "ReadUserURLs",
-			Handler:    _Urlshrt_ReadUserURLs_Handler,
+			MethodName: "ReadUserURLsV1",
+			Handler:    _UrlshrtV1_ReadUserURLsV1_Handler,
 		},
 		{
-			MethodName: "ReadAmountOfURLsAndUsers",
-			Handler:    _Urlshrt_ReadAmountOfURLsAndUsers_Handler,
+			MethodName: "ReadAmountOfURLsAndUsersV1",
+			Handler:    _UrlshrtV1_ReadAmountOfURLsAndUsersV1_Handler,
 		},
 		{
-			MethodName: "DeleteUserURLs",
-			Handler:    _Urlshrt_DeleteUserURLs_Handler,
+			MethodName: "DeleteUserURLsV1",
+			Handler:    _UrlshrtV1_DeleteUserURLsV1_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

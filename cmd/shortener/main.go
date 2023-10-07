@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/PoorMercymain/urlshrt/internal/interceptor"
 	"log"
 	"net"
 	"net/http"
@@ -19,12 +18,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/PoorMercymain/urlshrt/internal/interceptor"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/PoorMercymain/urlshrt/pkg/api"
 
 	_ "net/http/pprof"
+
+	_ "google.golang.org/grpc/encoding/gzip"
 
 	"github.com/go-chi/chi/v5"
 	mdlwr "github.com/go-chi/chi/v5/middleware"
@@ -44,7 +47,7 @@ var (
 	buildVersion, buildDate, buildCommit string
 )
 
-func router(us *service.URL, ur *repository.URL, CIDR string, shortURLsChan *domain.MutexChanString, wg *sync.WaitGroup, once *sync.Once) chi.Router {
+func router(us *service.URL, ur *repository.URL, jwtKey string, CIDR string, shortURLsChan *domain.MutexChanString, wg *sync.WaitGroup, once *sync.Once) chi.Router {
 	uh := handler.NewURL(us)
 
 	urls, err := ur.ReadAll(context.Background())
@@ -64,21 +67,21 @@ func router(us *service.URL, ur *repository.URL, CIDR string, shortURLsChan *dom
 
 	r := chi.NewRouter()
 
-	r.Post("/", WrapHandler(uh.CreateShortened))
-	r.Get("/{short}", WrapHandler(uh.ReadOriginal))
-	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON))
-	r.Get("/ping", WrapHandler(uh.PingPg))
-	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(wg)))
-	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs))
-	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, once, wg)))
-	r.Get("/api/internal/stats", middleware.CheckCIDR(WrapHandler(uh.ReadAmountOfURLsAndUsers), CIDR))
+	r.Post("/", WrapHandler(uh.CreateShortened, jwtKey))
+	r.Get("/{short}", WrapHandler(uh.ReadOriginal, jwtKey))
+	r.Post("/api/shorten", WrapHandler(uh.CreateShortenedFromJSON, jwtKey))
+	r.Get("/ping", WrapHandler(uh.PingPg, jwtKey))
+	r.Post("/api/shorten/batch", WrapHandler(uh.CreateShortenedFromBatchAdapter(wg), jwtKey))
+	r.Get("/api/user/urls", WrapHandler(uh.ReadUserURLs, jwtKey))
+	r.Delete("/api/user/urls", WrapHandler(uh.DeleteUserURLsAdapter(shortURLsChan, once, wg), jwtKey))
+	r.Get("/api/internal/stats", middleware.CheckCIDR(WrapHandler(uh.ReadAmountOfURLsAndUsers, jwtKey), CIDR))
 	r.Mount("/debug", mdlwr.Profiler())
 
 	return r
 }
 
-func WrapHandler(h http.HandlerFunc) http.HandlerFunc {
-	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h)))
+func WrapHandler(h http.HandlerFunc, jwtKey string) http.HandlerFunc {
+	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h), jwtKey))
 }
 
 func defineFlags(conf *config.Config) {
@@ -88,23 +91,31 @@ func defineFlags(conf *config.Config) {
 
 	flag.StringVar(&conf.DSN, "d", "", "string to connect to database")
 
-	flag.StringVar(&conf.JSONFile, "f", "./tmp/short-url-db.json", "full name of file where to store URL data in JSON format")
+	flag.StringVar(&conf.JSONFile, "f", "", "full name of file where to store URL data in JSON format")
 
 	flag.BoolVar(&conf.HTTPSEnabled, "s", false, "turns https on if not set to false")
 
 	flag.StringVar(&conf.ConfigFilePath, "c", "", "config file path")
 
-	flag.StringVar(&conf.TrustedSubnet, "t", "", "trusted subnet for stats endpoint")
+	flag.StringVar(&conf.TrustedSubnet, "t", "", "trusted subnet from which access for stats endpoint is not denied")
+
+	flag.StringVar(&conf.JWTKey, "j", "", "key to generate JWTs and get info from them")
+
+	flag.StringVar(&conf.GRPCAddr, "g", "", "gRPC server address")
+
+	flag.BoolVar(&conf.GRPCSecureEnabled, "e", false, "turning secure gRPC on")
 }
 
 func main() {
 	const (
 		defaultFileStorage = "./tmp/short-url-db.json"
+		defaultJWTKey      = "ultrasecretkey" // user should set a value to jwt key through config file/flag/env variable, if he won't then this unsafe value will be used
 		HTTPPrefix         = "http://"
 		HTTPSPrefix        = "https://"
 		slash              = "/"
 	)
 
+	// default names of env variables
 	var (
 		serverAddressEnvName   = "SERVER_ADDRESS"
 		baseURLEnvName         = "BASE_URL"
@@ -113,6 +124,11 @@ func main() {
 		enableHTTPSEnvName     = "ENABLE_HTTPS"
 		configFileEnvName      = "CONFIG"
 		trustedSubnetEnvName   = "TRUSTED_SUBNET"
+		jwtKeyEnvName          = "JWT_KEY"
+
+		// other options are shared with http/https server
+		grpcAddressEnvName      = "GRPC_ADDRESS"
+		enableGRPCSecureEnvName = "ENABLE_SECURE_GRPC"
 	)
 
 	util.PrintVariable(buildVersion, "version")
@@ -139,13 +155,16 @@ func main() {
 
 	// struct to redefine default env variables names
 	var configWithNames struct {
-		JSONFileEnvName      string `json:"file_storage_path_env,omitempty"`
-		DSNEnvName           string `json:"database_dsn_env,omitempty"`
-		HTTPAddrEnvName      string `json:"server_address_env,omitempty"`
-		ShortAddrEnvName     string `json:"base_url_env,omitempty"`
-		HTTPSEnabledEnvName  string `json:"enable_https_env,omitempty"`
-		ConfigEnvName        string `json:"config_env,omitempty"`
-		TrustedSubnetEnvName string `json:"trusted_subnet_env,omitempty"`
+		JSONFileEnvName          string `json:"file_storage_path_env,omitempty"`
+		DSNEnvName               string `json:"database_dsn_env,omitempty"`
+		HTTPAddrEnvName          string `json:"server_address_env,omitempty"`
+		ShortAddrEnvName         string `json:"base_url_env,omitempty"`
+		HTTPSEnabledEnvName      string `json:"enable_https_env,omitempty"`
+		ConfigEnvName            string `json:"config_env,omitempty"`
+		TrustedSubnetEnvName     string `json:"trusted_subnet_env,omitempty"`
+		JWTKeyEnvName            string `json:"jwt_key_env,omitempty"`
+		GRPCAddressEnvName       string `json:"grpc_address_env,omitempty"`
+		GRPCSecureEnabledEnvName string `json:"grpc_secure_env,omitempty"`
 	}
 
 	if configWithNamesPath != "" {
@@ -200,6 +219,18 @@ func main() {
 		if configWithNames.TrustedSubnetEnvName != "" {
 			trustedSubnetEnvName = configWithNames.TrustedSubnetEnvName
 		}
+
+		if configWithNames.JWTKeyEnvName != "" {
+			jwtKeyEnvName = configWithNames.JWTKeyEnvName
+		}
+
+		if configWithNames.GRPCAddressEnvName != "" {
+			grpcAddressEnvName = configWithNames.GRPCAddressEnvName
+		}
+
+		if configWithNames.GRPCSecureEnabledEnvName != "" {
+			enableGRPCSecureEnvName = configWithNames.GRPCSecureEnabledEnvName
+		}
 	}
 
 	// getting values of environment variables
@@ -210,11 +241,22 @@ func main() {
 	secureEnv, secureSet := os.LookupEnv(enableHTTPSEnvName)
 	configEnv, configSet := os.LookupEnv(configFileEnvName)
 	trustedSubnetEnv, trustedSubnetSet := os.LookupEnv(trustedSubnetEnvName)
+	jwtKeyEnv, jwtKeySet := os.LookupEnv(jwtKeyEnvName)
+	grpcEnv, grpcSet := os.LookupEnv(grpcAddressEnvName)
+	grpcSecureEnv, grpcSecureSet := os.LookupEnv(enableGRPCSecureEnvName)
 
-	var boolSecureEnv bool
+	var boolSecureEnv, boolSecureGRPCEnv bool
 	if secureSet {
 		// parsing value because os.LookupEnv returns a string, not a bool
 		boolSecureEnv, err = strconv.ParseBool(secureEnv)
+		if err != nil {
+			util.GetLogger().Infoln(err)
+			return
+		}
+	}
+
+	if grpcSecureSet {
+		boolSecureGRPCEnv, err = strconv.ParseBool(grpcSecureEnv)
 		if err != nil {
 			util.GetLogger().Infoln(err)
 			return
@@ -253,14 +295,29 @@ func main() {
 		conf.TrustedSubnet = trustedSubnetEnv
 	}
 
+	if jwtKeySet {
+		conf.JWTKey = jwtKeyEnv
+	}
+
+	if grpcSet {
+		conf.GRPCAddr = grpcEnv
+	}
+
+	if grpcSecureSet {
+		conf.GRPCSecureEnabled = boolSecureGRPCEnv
+	}
+
 	// required names of settings in a config file are not the same as in config struct, so we need another one which is rawConfig
 	var rawConfig struct {
-		JSONFile      string `json:"file_storage_path,omitempty"`
-		DSN           string `json:"database_dsn,omitempty"`
-		HTTPAddr      string `json:"server_address,omitempty"`
-		ShortAddr     string `json:"base_url,omitempty"`
-		HTTPSEnabled  bool   `json:"enable_https,omitempty"`
-		TrustedSubnet string `json:"trusted_subnet,omitempty"`
+		JSONFile          string `json:"file_storage_path,omitempty"`
+		DSN               string `json:"database_dsn,omitempty"`
+		HTTPAddr          string `json:"server_address,omitempty"`
+		ShortAddr         string `json:"base_url,omitempty"`
+		HTTPSEnabled      bool   `json:"enable_https,omitempty"`
+		TrustedSubnet     string `json:"trusted_subnet,omitempty"`
+		JWTKey            string `json:"jwt_key,omitempty"`
+		GRPCAddr          string `json:"grpc_address,omitempty"`
+		GRPCSecureEnabled bool   `json:"enable_secure_grpc"`
 	}
 
 	if conf.ConfigFilePath != "" {
@@ -309,6 +366,7 @@ func main() {
 			conf.ShortAddr = config.AddrWithCheck{Addr: rawConfig.ShortAddr, WasSet: set}
 		}
 
+		// may be now the check can be simplified
 		if (conf.JSONFile == defaultFileStorage || conf.JSONFile == "") && rawConfig.JSONFile != "" {
 			conf.JSONFile = rawConfig.JSONFile
 		}
@@ -324,6 +382,26 @@ func main() {
 		if conf.TrustedSubnet == "" {
 			conf.TrustedSubnet = rawConfig.TrustedSubnet
 		}
+
+		if conf.JWTKey == "" {
+			conf.JWTKey = rawConfig.JWTKey
+		}
+
+		if conf.GRPCAddr == "" {
+			conf.GRPCAddr = rawConfig.GRPCAddr
+		}
+
+		if !conf.GRPCSecureEnabled {
+			conf.GRPCSecureEnabled = rawConfig.GRPCSecureEnabled
+		}
+	}
+
+	if conf.JWTKey == "" {
+		conf.JWTKey = defaultJWTKey
+	}
+
+	if conf.JSONFile == "" {
+		conf.JSONFile = defaultFileStorage
 	}
 
 	// creating a postgres struct
@@ -345,6 +423,7 @@ func main() {
 
 	// if address were not specified, we may need to use a default address which is different for HTTP and HTTPS
 	defAddr := "://localhost:"
+	const defGRPCAddr = "localhost:4431"
 	if conf.HTTPSEnabled {
 		defAddr = fmt.Sprintf("https%s443/", defAddr)
 	} else {
@@ -360,6 +439,10 @@ func main() {
 		conf.HTTPAddr = conf.ShortAddr
 	} else if !conf.ShortAddr.WasSet {
 		conf.ShortAddr = conf.HTTPAddr
+	}
+
+	if conf.GRPCAddr == "" {
+		conf.GRPCAddr = defGRPCAddr
 	}
 
 	util.GetLogger().Debugln(conf.JSONFile)
@@ -385,7 +468,7 @@ func main() {
 	us := service.NewURL(ur)
 
 	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
-	r := router(us, ur, conf.TrustedSubnet, shortURLsChan, &wg, &once)
+	r := router(us, ur, conf.JWTKey, conf.TrustedSubnet, shortURLsChan, &wg, &once)
 
 	var m *autocert.Manager
 
@@ -417,8 +500,7 @@ func main() {
 		Handler: r,
 	}
 
-	// TODO get from config
-	listenerGRPC, err := net.Listen("tcp", addrToServe+"1")
+	listenerGRPC, err := net.Listen("tcp", conf.GRPCAddr)
 	if err != nil {
 		util.GetLogger().Infoln("failed to listen:", err)
 		return
@@ -430,18 +512,20 @@ func main() {
 	const keyPath = "cert/localhost.key"
 
 	var grpcServer *grpc.Server
-	if conf.HTTPSEnabled {
+	if conf.GRPCSecureEnabled {
 		creds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
 		if err != nil {
 			log.Fatalf("Failed to setup tls: %v", err)
 		}
-		grpcServer = grpc.NewServer(grpc.Creds(creds), grpc.ChainUnaryInterceptor(interceptor.Authorize))
+		grpcServer = grpc.NewServer(grpc.Creds(creds), grpc.ChainUnaryInterceptor(interceptor.Log,
+			interceptor.Authorize(conf.JWTKey), interceptor.CheckCIDR(conf.TrustedSubnet), interceptor.ValidateRequest))
 	} else {
-		grpcServer = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Authorize))
+		grpcServer = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Log, interceptor.Authorize(conf.JWTKey),
+			interceptor.CheckCIDR(conf.TrustedSubnet), interceptor.ValidateRequest))
 	}
 
 	helloServer := &handler.Server{Wg: &wg, Once: &once, Srv: us, ShortURLsChan: shortURLsChan}
-	api.RegisterUrlshrtServer(grpcServer, helloServer)
+	api.RegisterUrlshrtV1Server(grpcServer, helloServer)
 
 	// channel to intercept signals for graceful shutdown
 	c := make(chan os.Signal, 1)

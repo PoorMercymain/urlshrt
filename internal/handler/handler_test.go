@@ -35,7 +35,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		require.NoError(t, err)
 		util.GetLogger().Infoln(req)
 		var jwt string
-		jwt, _, err = middleware.BuildJWTString()
+		jwt, _, err = middleware.BuildJWTString("abc")
 		require.NoError(t, err)
 		cookie := &http.Cookie{Name: "auth", Value: jwt}
 		req.AddCookie(cookie)
@@ -155,7 +155,7 @@ func router(t *testing.T) chi.Router {
 }
 
 func WrapHandler(h http.HandlerFunc /*, fmem *os.File*/) http.HandlerFunc {
-	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h /*, fmem*/)))
+	return middleware.GzipHandle(middleware.Authorize(middleware.WithLogging(h /*, fmem*/), "abc"))
 }
 
 func TestRouter(t *testing.T) {

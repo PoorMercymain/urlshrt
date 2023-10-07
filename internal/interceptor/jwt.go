@@ -4,17 +4,19 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"github.com/PoorMercymain/urlshrt/internal/domain"
-	"github.com/PoorMercymain/urlshrt/pkg/util"
+	"math/big"
+
 	"github.com/golang-jwt/jwt/v4"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"math/big"
+
+	"github.com/PoorMercymain/urlshrt/internal/domain"
+	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
-func GetUserID(tokenString string) (int64, error) {
+func GetUserID(tokenString string, jwtKey string) (int64, error) {
 	claims := jwt.MapClaims{
 		"userid": int64(0),
 	}
@@ -22,7 +24,7 @@ func GetUserID(tokenString string) (int64, error) {
 		if t.Method != jwt.SigningMethodHS256 {
 			return nil, errors.New("wrong signing method")
 		}
-		return []byte("ultrasecretkey"), nil // TODO move key to a safer place
+		return []byte(jwtKey), nil
 	})
 
 	if err != nil {
@@ -42,7 +44,7 @@ func GetUserID(tokenString string) (int64, error) {
 	return uid, nil
 }
 
-func BuildJWTString() (string, int64, error) {
+func BuildJWTString(jwtKey string) (string, int64, error) {
 	id, err := rand.Int(rand.Reader, big.NewInt(1000))
 	if err != nil {
 		util.GetLogger().Infoln("could not generate", err)
@@ -55,7 +57,7 @@ func BuildJWTString() (string, int64, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString([]byte("ultrasecretkey")) // TODO the same problem with key
+	tokenString, err := token.SignedString([]byte(jwtKey))
 	if err != nil {
 		util.GetLogger().Infoln("could not create token", err)
 		return "", 0, err
@@ -66,56 +68,58 @@ func BuildJWTString() (string, int64, error) {
 	return tokenString, id.Int64(), nil
 }
 
-func Authorize(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	var needToCreateJWT bool
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		needToCreateJWT = true
-		util.GetLogger().Infoln("get metadata")
-	}
-
-	var values []string
-	if !needToCreateJWT {
-		values, ok = md["auth"]
+func Authorize(jwtKey string) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		var needToCreateJWT bool
+		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			needToCreateJWT = true
+			util.GetLogger().Infoln("get metadata")
 		}
-	}
 
-	var auth string
-	if !needToCreateJWT {
-		auth = values[0]
-		if auth == "" {
-			needToCreateJWT = true
+		var values []string
+		if !needToCreateJWT {
+			values, ok = md["auth"]
+			if !ok {
+				needToCreateJWT = true
+			}
 		}
-	}
 
-	var uid int64
-	var err error
-	if !needToCreateJWT {
-		uid, err = GetUserID(auth)
+		var auth string
+		if !needToCreateJWT {
+			auth = values[0]
+			if auth == "" {
+				needToCreateJWT = true
+			}
+		}
+
+		var uid int64
+		var err error
+		if !needToCreateJWT {
+			uid, err = GetUserID(auth, jwtKey)
+			if err != nil {
+				needToCreateJWT = true
+			}
+		}
+
+		if needToCreateJWT {
+			auth, uid, err = BuildJWTString(jwtKey)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to build auth string")
+			}
+
+			ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
+		}
+
+		util.GetLogger().Infoln("id", uid)
+		ctx = context.WithValue(ctx, domain.Key("id"), uid)
+
+		md = metadata.Pairs("auth", auth)
+		err = grpc.SendHeader(ctx, md)
 		if err != nil {
-			needToCreateJWT = true
-		}
-	}
-
-	if needToCreateJWT {
-		auth, uid, err = BuildJWTString()
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to build auth string")
+			return nil, status.Errorf(codes.Internal, "failed to send metadata back to client")
 		}
 
-		ctx = context.WithValue(ctx, domain.Key("unauthorized"), true)
+		return handler(ctx, req)
 	}
-
-	util.GetLogger().Infoln("id", uid)
-	ctx = context.WithValue(ctx, domain.Key("id"), uid)
-
-	md = metadata.Pairs("auth", auth)
-	err = grpc.SendHeader(ctx, md)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to send metadata back to client")
-	}
-
-	return handler(ctx, req)
 }
