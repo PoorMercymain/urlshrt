@@ -33,6 +33,7 @@ jobs:
         run: |
             full_output=$(go vet ./... 2>&1)
             output=$(echo "$full_output" | tail -n 2)
+            echo here_ "$full_output"
             if [[ $? -eq 0 ]]; then
               echo "go vet passed without issues."
               exit 0
