@@ -31,6 +31,7 @@ jobs:
       - name: Run statictest
         shell: bash
         run: |
+            go mod download
             set +e
             err_output=$(go vet -vettool=$(which statictest) ./... 2>&1 >/dev/null)
             vet_exit_code=$?
