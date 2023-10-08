@@ -231,7 +231,6 @@ func (s *URL) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 						shortURLs.URLs = shortURLs.URLs[:0]
 						shortURLs.uid = shortURLs.uid[:0]
 						shortURLs.Unlock()
-						util.GetLogger().Debugln(len(shortURLs.URLs))
 						timer = time.Now()
 					}
 				}
@@ -241,7 +240,6 @@ func (s *URL) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 
 	go func() {
 		if len(short) != 0 {
-			util.GetLogger().Infoln("len short", len(short))
 			shortURLsChan.Lock()
 			for _, url := range short {
 				shortURLsChan.Channel <- url
