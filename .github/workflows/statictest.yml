@@ -33,10 +33,11 @@ jobs:
         run: |
             set +e
             full_output=$(go vet -vettool=$(which statictest) ./... 2>&1)
+            vet_exit_code=$?
             set -e
             output=$(echo "$full_output" | tail -n 2)
             echo here_ "$full_output"
-            if [[ $? -eq 0 ]]; then
+            if [[ $vet_exit_code -eq 0 ]]; then
               echo "go vet passed without issues."
               exit 0
             fi
