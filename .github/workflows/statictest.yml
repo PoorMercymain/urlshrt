@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
             output=$(go vet ./... 2>&1 | tail -n 2)
-            if [[ -z "$output" ]]; then
+            if [[ $? -eq 0 ]]; then
               echo "go vet passed without issues."
               exit 0
             fi
