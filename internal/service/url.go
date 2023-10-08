@@ -209,9 +209,9 @@ func (s *URL) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 					for len(shortURLsChan.Channel) > 0 {
 						shrt = <-shortURLsChan.Channel
 						shortURLs.URLs = append(shortURLs.URLs, shrt.URL)
-						util.GetLogger().Infoln(ctx.Value(domain.Key("id")).(int64))
+						util.GetLogger().Debugln(ctx.Value(domain.Key("id")).(int64))
 						shortURLs.uid = append(shortURLs.uid, shrt.ID)
-						util.GetLogger().Infoln("добавил", shrt)
+						util.GetLogger().Debugln("добавил", shrt)
 						wg.Add(1)
 					}
 					shortURLs.Unlock()
@@ -226,7 +226,7 @@ func (s *URL) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 						for range shortURLs.uid {
 							wg.Done()
 						}
-						util.GetLogger().Infoln("удалил ли? вот ответ -", g)
+						util.GetLogger().Debugln("удалил ли? вот ответ -", g)
 						if erro != nil {
 							util.GetLogger().Infoln(erro)
 						}
@@ -234,7 +234,7 @@ func (s *URL) DeleteUserURLs(ctx context.Context, short []domain.URLWithID, shor
 						shortURLs.URLs = shortURLs.URLs[:0]
 						shortURLs.uid = shortURLs.uid[:0]
 						shortURLs.Unlock()
-						util.GetLogger().Infoln(len(shortURLs.URLs))
+						util.GetLogger().Debugln(len(shortURLs.URLs))
 						timer = time.Now()
 					}
 				}
