@@ -29,15 +29,16 @@ jobs:
           mv $GITHUB_WORKSPACE/.tools/statictest /usr/local/bin/statictest
 
       - name: Run statictest
+        shell: bash
         run: |
-          output=$(go vet ./... 2>&1)
-          if [[ -z "$output" ]]; then
-            echo "go vet passed without issues."
-            exit 0
-          fi
-          echo "$output"
-          if [[ "$output" == *"# github.com/PoorMercymain/urlshrt/pkg/api"*"error var _ should have name of the form errFoo"* ]]; then
-            echo "Detected allowed go vet message, proceeding."
-            exit 0
-          fi
-          exit 1
+            output=$(go vet ./... 2>&1)
+            if [[ -z "$output" ]]; then
+              echo "go vet passed without issues."
+              exit 0
+            fi
+            echo "$output"
+            if [[ "$output" == *"# github.com/PoorMercymain/urlshrt/pkg/api"*"error var _ should have name of the form errFoo"* ]]; then
+              echo "Detected allowed go vet message, proceeding."
+              exit 0
+            fi
+            exit 1
