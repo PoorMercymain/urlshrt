@@ -36,7 +36,7 @@ jobs:
               echo "go vet passed without issues."
               exit 0
             fi
-            echo "$output"
+            echo here "$output"
             if [[ "$output" == *"# github.com/PoorMercymain/urlshrt/pkg/api"*"error var _ should have name of the form errFoo"* ]]; then
               echo "Detected allowed go vet message, proceeding."
               exit 0
