@@ -524,8 +524,8 @@ func main() {
 			interceptor.CheckCIDR(conf.TrustedSubnet), interceptor.ValidateRequest))
 	}
 
-	helloServer := &handler.Server{Wg: &wg, Once: &once, Srv: us, ShortURLsChan: shortURLsChan}
-	api.RegisterUrlshrtV1Server(grpcServer, helloServer)
+	urlshrtServer := &handler.Server{Wg: &wg, Once: &once, Srv: us, ShortURLsChan: shortURLsChan}
+	api.RegisterUrlshrtV1Server(grpcServer, urlshrtServer)
 
 	// channel to intercept signals for graceful shutdown
 	c := make(chan os.Signal, 1)

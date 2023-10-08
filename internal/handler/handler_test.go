@@ -27,18 +27,19 @@ import (
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path, mime string) (*http.Response, string) {
-
 	var req *http.Request
 	var err error
-	if body == "" {
+	if body == "" || body == "no_jwt" {
 		req, err = http.NewRequest(method, ts.URL+path, nil)
 		require.NoError(t, err)
 		util.GetLogger().Infoln(req)
-		var jwt string
-		jwt, _, err = middleware.BuildJWTString("abc")
-		require.NoError(t, err)
-		cookie := &http.Cookie{Name: "auth", Value: jwt}
-		req.AddCookie(cookie)
+		if body != "no_jwt" {
+			var jwt string
+			jwt, _, err = middleware.BuildJWTString("abc")
+			require.NoError(t, err)
+			cookie := &http.Cookie{Name: "auth", Value: jwt}
+			req.AddCookie(cookie)
+		}
 	} else if method == "POST" {
 		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	} else if method == "POST with JSON" {
@@ -74,7 +75,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	if method != "GET" {
 		util.GetLogger().Infoln(code, body, method, resp.StatusCode)
 		assert.Equal(t, code, resp.StatusCode)
-	} else if path != "/api/user/urls" && path != "/ping" && path != "/read/" && path != "/stats/" {
+	} else if path != "/api/user/urls" && path != "/ping" && path != "/read/" && path != "/stats/" && path != "/read-orig/" {
 		client := &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -100,7 +101,7 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		respBody = []byte(short.Result)
 	}
 
-	if resp.StatusCode != 500 && resp.StatusCode != 400 && resp.StatusCode != 204 {
+	if resp.StatusCode != 500 && resp.StatusCode != 400 && resp.StatusCode != 204 && resp.StatusCode != 401 && resp.StatusCode != 410 {
 		require.NoError(t, err)
 	}
 
@@ -123,6 +124,7 @@ func router(t *testing.T) chi.Router {
 	ur.EXPECT().ReadUserURLs(gomock.Any()).Return([]state.URLStringJSON{{UUID: 1, OriginalURL: "abc", ShortURL: "cba"}}, nil).MaxTimes(1)
 	ur.EXPECT().CountURLsAndUsers(gomock.Any()).Return(0, 0, errors.New("")).MaxTimes(1)
 	ur.EXPECT().CountURLsAndUsers(gomock.Any()).Return(1, 1, nil).MaxTimes(1)
+	ur.EXPECT().IsURLDeleted(gomock.Any(), gomock.Any()).Return(true, nil).MaxTimes(1)
 
 	r := chi.NewRouter()
 
@@ -178,6 +180,7 @@ func router(t *testing.T) chi.Router {
 	r.Get("/read/", WrapHandler(uh.ReadUserURLs))
 	r.Get("/stats/", WrapHandler(uh.ReadAmountOfURLsAndUsers))
 	r.Delete("/delete/", WrapHandler(uh.DeleteUserURLsAdapter(mc, &once, &wg)))
+	r.Get("/read-orig/", WrapHandler(uh.ReadOriginal))
 
 	return r
 }
@@ -224,17 +227,19 @@ func TestRouter(t *testing.T) {
 		{url: "/batch/", status: 500, body: "[{\"correlation_id\": \"123\", \"original_url\": \"a\"}]", want: "", mime: ""},
 		{"/read/", "", "", "", 400},
 		{"/read/", "", "", "", 204},
+
 		{"/read/", "", "", "", 200},
 		{"/stats/", "", "", "", 500},
 		{"/stats/", "", "", "", 200},
 		{"/delete/", "", "", "empty", 400},
 		{"/delete/", "[]", "", "application/json", 400},
+		{"/read-orig/", "", "", "", 410},
 	}
 
 	util.GetLogger().Infoln(0)
 
 	for i, testCase := range testTable {
-		if i == 3 || i == 5 || i == 8 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23 {
+		if i == 3 || i == 5 || i == 8 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23 || i == 26 {
 			util.GetLogger().Infoln("first", i)
 			re, _ := testRequest(t, ts, testCase.status, testCase.body, "GET", testCase.url, testCase.mime)
 			re.Body.Close()

@@ -84,6 +84,23 @@ func (h *Server) CreateShortenedFromBatchV1(ctx context.Context, req *api.Create
 
 	util.GetLogger().Infoln(batch)
 
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "couldn't get metadata from context")
+	}
+
+	randSeedValues := md.Get("RandSeed")
+	var randSeed int
+	var err error
+	if len(randSeedValues) > 0 {
+		randSeed, err = strconv.Atoi(randSeedValues[0])
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "incorrect format of RandSeed used")
+		}
+
+		ctx = context.WithValue(ctx, domain.Key("seed"), int64(randSeed))
+	}
+
 	shortened, err := h.Srv.CreateShortenedFromBatch(ctx, batch, h.Wg)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "something went wrong while processing the request")
@@ -104,13 +121,13 @@ func (h *Server) CreateShortenedFromBatchV1(ctx context.Context, req *api.Create
 }
 
 func (h *Server) ReadUserURLsV1(ctx context.Context, req *emptypb.Empty) (*api.ReadUserURLsReplyV1, error) {
+	if unauthorized := ctx.Value(domain.Key("unauthorized")); unauthorized != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "please use jwt from response metadata to access the handler")
+	}
+
 	UserURLs, err := h.Srv.ReadUserURLs(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "request might be incorrect")
-	}
-
-	if unauthorized := ctx.Value(domain.Key("unauthorized")); unauthorized != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "please use jwt from response metadata to access the handler")
 	}
 
 	addr := state.GetBaseShortAddress()
