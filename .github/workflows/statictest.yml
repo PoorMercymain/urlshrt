@@ -30,6 +30,4 @@ jobs:
 
       - name: Run statictest
         run: |
-          for dir in $(go list -f '{{.Dir}}' ./...); do
-            find $dir -name '*.go' ! -name 'validate.pb.go' -exec go vet -vettool=$(which statictest) -buildvcs=false {} +
-          done
+          find . -name '*.go' ! -name 'validate.go' -exec dirname {} \; | sort -u | xargs -I {} go vet -vettool=$(which statictest) {}
