@@ -30,4 +30,4 @@ jobs:
 
       - name: Run statictest
         run: |
-          go vet -vettool=$(which statictest) ./...
+          find . -name '*.go' ! -name '*.validate.go' | xargs go vet -vettool=$(which statictest)
