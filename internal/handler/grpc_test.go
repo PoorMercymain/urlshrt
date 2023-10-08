@@ -219,4 +219,6 @@ func TestGRPC(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, test.statusCode, s.Code())
 	}
+
+	urlshrt.Wg.Wait()
 }
