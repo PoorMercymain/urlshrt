@@ -30,4 +30,4 @@ jobs:
 
       - name: Run statictest
         run: |
-          find . -name '*.go' ! -name 'pkg/api/urlshrt.pb.validate.go' -exec dirname {} \; | sort -u | xargs -I {} go vet -vettool=$(which statictest) {}
+          find . -name '*.go' | grep -v '.validate.go' | xargs -n 1 dirname | sort -u | xargs -I {} go vet -vettool=$(which statictest) {}
