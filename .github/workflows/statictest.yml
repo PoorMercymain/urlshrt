@@ -31,7 +31,7 @@ jobs:
       - name: Run statictest
         shell: bash
         run: |
-            full_output=$(go vet ./... 2>&1)
+            full_output=$(go vet -vettool=$(which statictest) 2>&1)
             output=$(echo "$full_output" | tail -n 2)
             echo here_ "$full_output"
             if [[ $? -eq 0 ]]; then
