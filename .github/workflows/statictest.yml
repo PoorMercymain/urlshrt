@@ -31,7 +31,8 @@ jobs:
       - name: Run statictest
         shell: bash
         run: |
-            output=$(go vet ./... 2>&1 | tail -n 2)
+            full_output=$(go vet ./... 2>&1)
+            output=$(echo "$full_output" | tail -n 2)
             if [[ $? -eq 0 ]]; then
               echo "go vet passed without issues."
               exit 0
