@@ -43,12 +43,18 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	} else if method == "POST with JSON" {
 		req, err = http.NewRequest("POST", ts.URL+path, strings.NewReader(body))
+	} else {
+		req, err = http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	}
+
 	if method == "POST" && mime == "" {
 		req.Header.Set("Content-Type", "text/plain")
 	} else if method == "POST with JSON" && mime == "" {
 		req.Header.Set("Content-Type", "application/json")
+	} else if mime == "empty" {
+		req.Header.Del("Content-Type")
 	} else if mime != "" {
+		util.GetLogger().Infoln(mime)
 		req.Header.Set("Content-Type", mime)
 	}
 
@@ -66,8 +72,9 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 	defer resp.Body.Close()
 
 	if method != "GET" {
+		util.GetLogger().Infoln(code, body, method, resp.StatusCode)
 		assert.Equal(t, code, resp.StatusCode)
-	} else if path != "/api/user/urls" && path != "/ping" {
+	} else if path != "/api/user/urls" && path != "/ping" && path != "/read/" && path != "/stats/" {
 		client := &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -93,7 +100,9 @@ func testRequest(t *testing.T, ts *httptest.Server, code int, body, method, path
 		respBody = []byte(short.Result)
 	}
 
-	require.NoError(t, err)
+	if resp.StatusCode != 500 && resp.StatusCode != 400 && resp.StatusCode != 204 {
+		require.NoError(t, err)
+	}
 
 	return resp, string(respBody)
 }
@@ -106,6 +115,14 @@ func router(t *testing.T) chi.Router {
 
 	ur.EXPECT().PingPg(gomock.Any()).Return(nil).MaxTimes(1)
 	ur.EXPECT().PingPg(gomock.Any()).Return(errors.New("test")).AnyTimes()
+	ur.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", domain.NewUniqueError(errors.New(""))).MaxTimes(2)
+	ur.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", errors.New("")).MaxTimes(2)
+	ur.EXPECT().CreateBatch(gomock.Any(), gomock.Any()).Return(errors.New("")).MaxTimes(1)
+	ur.EXPECT().ReadUserURLs(gomock.Any()).Return([]state.URLStringJSON{}, errors.New("")).MaxTimes(1)
+	ur.EXPECT().ReadUserURLs(gomock.Any()).Return([]state.URLStringJSON{}, nil).MaxTimes(1)
+	ur.EXPECT().ReadUserURLs(gomock.Any()).Return([]state.URLStringJSON{{UUID: 1, OriginalURL: "abc", ShortURL: "cba"}}, nil).MaxTimes(1)
+	ur.EXPECT().CountURLsAndUsers(gomock.Any()).Return(0, 0, errors.New("")).MaxTimes(1)
+	ur.EXPECT().CountURLsAndUsers(gomock.Any()).Return(1, 1, nil).MaxTimes(1)
 
 	r := chi.NewRouter()
 
@@ -145,11 +162,22 @@ func router(t *testing.T) chi.Router {
 	}
 	util.GetLogger().Infoln(u.Urls)
 
+	var wg sync.WaitGroup
+	ch := make(chan domain.URLWithID)
+	mc := domain.NewMutexChanString(ch)
+	var once sync.Once
+
 	r.Get("/ping", WrapHandler(uh.PingPg))
 	r.Post("/", WrapHandler(uha.CreateShortened /*, fmem*/))
 	r.Get("/{short}", WrapHandler(uha.ReadOriginal /*, fmem*/))
 	r.Post("/api/shorten", WrapHandler(uha.CreateShortenedFromJSON /*, fmem*/))
 	r.Get("/api/user/urls", WrapHandler(uha.ReadUserURLs))
+	r.Post("/shorten/", WrapHandler(uh.CreateShortened))
+	r.Post("/shorten/json/", WrapHandler(uh.CreateShortenedFromJSON))
+	r.Post("/batch/", WrapHandler(uh.CreateShortenedFromBatchAdapter(&wg)))
+	r.Get("/read/", WrapHandler(uh.ReadUserURLs))
+	r.Get("/stats/", WrapHandler(uh.ReadAmountOfURLsAndUsers))
+	r.Delete("/delete/", WrapHandler(uh.DeleteUserURLsAdapter(mc, &once, &wg)))
 
 	return r
 }
@@ -174,54 +202,56 @@ func TestRouter(t *testing.T) {
 		mime   string
 		status int
 	}{
-		{"/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "application/json", 400},
+		{"/shorten/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "", 409},
+		{"/", "https://ya.ru", "", "application/json", 400},
 		{"/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "", 201},
-		{"/aBcDeFg", "", "https://ya.ru", "", 307},
-		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
-		{url: "/ping", status: 200, body: "", want: "", mime: ""},
-		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: "text/plain"},
+		{"/aBcDeFg", "", "https://ya.ru", "", 307},                                                                               //
+		{url: "/api/shorten", status: 201, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""}, //
+		{url: "/ping", status: 200, body: "", want: "", mime: ""},                                                                //
+		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"}", want: "", mime: "text/plain"},
 		{"/", "https://mail.ru", "", "", 201},
-		{url: "/ping", status: 500, body: "", want: "", mime: ""},
-		{url: "/api/shorten", status: 400, body: "\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
+		{url: "/ping", status: 500, body: "", want: "", mime: ""}, //
+		{url: "/api/shorten", status: 400, body: "\"url\":\"https://ya.ru\"}", want: "", mime: ""},
+		{"/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "empty", 400},
+
+		{url: "/shorten/json/", status: 409, body: "{\"url\":\"https://ya.ru\"}", want: "http://localhost:8080/aBcDeFg", mime: ""},
+		{"/shorten/", "https://ya.ru", "http://localhost:8080/aBcDeFg", "", 500},
+		{url: "/shorten/json/", status: 500, body: "{\"url\":\"https://ya.ru\"}", want: "", mime: ""},
+		{url: "/api/shorten", status: 400, body: "{\"url\":\"https://ya.ru\"", want: "", mime: ""},
+		{url: "/batch/", status: 400, body: "[]", want: "", mime: "empty"},
+		{url: "/batch/", status: 400, body: "[]", want: "", mime: ""},
+		{url: "/batch/", status: 400, body: "[", want: "", mime: ""},
+		{url: "/batch/", status: 500, body: "[{\"correlation_id\": \"123\", \"original_url\": \"a\"}]", want: "", mime: ""},
+		{"/read/", "", "", "", 400},
+		{"/read/", "", "", "", 204},
+		{"/read/", "", "", "", 200},
+		{"/stats/", "", "", "", 500},
+		{"/stats/", "", "", "", 200},
+		{"/delete/", "", "", "empty", 400},
+		{"/delete/", "[]", "", "application/json", 400},
 	}
 
 	util.GetLogger().Infoln(0)
-	re, _ := testRequest(t, ts, testTable[0].status, testTable[0].body, "POST", testTable[0].url, testTable[0].mime)
-	//assert.Equal(t, testTable[0].want, post)
-	re.Body.Close()
 
-	u, err := state.GetCurrentURLsPtr()
-	if err != nil {
-		util.GetLogger().Infoln(err)
+	for i, testCase := range testTable {
+		if i == 3 || i == 5 || i == 8 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23 {
+			util.GetLogger().Infoln("first", i)
+			re, _ := testRequest(t, ts, testCase.status, testCase.body, "GET", testCase.url, testCase.mime)
+			re.Body.Close()
+		} else if i == 4 || i == 11 || i == 13 || i == 15 || i == 16 || i == 17 || i == 18 {
+			util.GetLogger().Infoln("second", i)
+			re, _ := testRequest(t, ts, testCase.status, testCase.body, "POST with JSON", testCase.url, testCase.mime)
+			re.Body.Close()
+		} else if i == 24 || i == 25 {
+			util.GetLogger().Infoln("third", i)
+			re, _ := testRequest(t, ts, testCase.status, testCase.body, "DELETE", testCase.url, testCase.mime)
+			re.Body.Close()
+		} else {
+			util.GetLogger().Infoln("fourth", i)
+			re, _ := testRequest(t, ts, testCase.status, testCase.body, "POST", testCase.url, testCase.mime)
+			re.Body.Close()
+		}
 	}
-
-	util.GetLogger().Infoln(u.Urls)
-
-	re, _ = testRequest(t, ts, testTable[1].status, testTable[1].body, "POST", testTable[1].url, testTable[1].mime)
-	re.Body.Close()
-
-	util.GetLogger().Infoln(1)
-	re, _ = testRequest(t, ts, testTable[2].status, testTable[2].body, "GET", testTable[2].url, testTable[2].mime)
-	re.Body.Close()
-	util.GetLogger().Infoln(2)
-	re, _ = testRequest(t, ts, testTable[3].status, testTable[3].body, "POST with JSON", testTable[3].url, testTable[3].mime)
-	//assert.Equal(t, testTable[2].want, postJSON)
-	re.Body.Close()
-	util.GetLogger().Infoln(3)
-	re, _ = testRequest(t, ts, testTable[4].status, testTable[4].body, "GET", testTable[4].url, testTable[4].mime)
-	re.Body.Close()
-
-	re, _ = testRequest(t, ts, testTable[5].status, testTable[5].body, "POST", testTable[5].url, testTable[5].mime)
-	re.Body.Close()
-
-	re, _ = testRequest(t, ts, testTable[6].status, testTable[6].body, "POST", testTable[6].url, testTable[6].mime)
-	re.Body.Close()
-
-	re, _ = testRequest(t, ts, testTable[7].status, testTable[7].body, "GET", testTable[7].url, testTable[7].mime)
-	re.Body.Close()
-
-	re, _ = testRequest(t, ts, testTable[8].status, testTable[8].body, "POST", testTable[8].url, testTable[8].mime)
-	re.Body.Close()
 }
 
 func benchmarkRequest(b *testing.B, ts *httptest.Server, body, method, path, contentType string) string {
