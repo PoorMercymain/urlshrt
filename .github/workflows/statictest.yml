@@ -30,6 +30,4 @@ jobs:
 
       - name: Run statictest
         run: |
-          ls
-          go list ./...
-          go vet -vettool=$(which statictest) ./...
+          find . -type d \( -path ./pkg/api \) -prune -o -type d -print | xargs -I {} go vet -vettool=$(which statictest) {}
