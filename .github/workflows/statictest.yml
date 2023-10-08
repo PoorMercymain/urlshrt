@@ -32,17 +32,18 @@ jobs:
         shell: bash
         run: |
             set +e
-            full_output=$(go vet -vettool=$(which statictest) ./... 2>&1)
+            err_output=$(go vet -vettool=$(which statictest) ./... 2>&1 >/dev/null)
+            vet_exit_code=$?
             set -e
-            output=$(echo "$full_output" | tail -n 2)
-            echo here_ "$full_output"
-            if [[ $? -eq 0 ]]; then
-              echo "go vet passed without issues."
+            if [[ -z "$err_output" ]]; then
+              echo "No issues detected."
               exit 0
-            fi
-            echo here "$output"
-            if [[ "$output" == *"# github.com/PoorMercymain/urlshrt/pkg/api"*"error var _ should have name of the form errFoo"* ]]; then
+            elif [[ "$err_output" == "# github.com/PoorMercymain/urlshrt/pkg/api"*"error var _ should have name of the form errFoo" ]]; then
               echo "Detected allowed go vet message, proceeding."
+              echo "$err_output"
               exit 0
+            else
+              echo "Unexpected issues found."
+              echo "$err_output"
+              exit 1
             fi
-            exit 1
