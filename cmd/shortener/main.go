@@ -104,6 +104,14 @@ func defineFlags(conf *config.Config) {
 	flag.StringVar(&conf.GRPCAddr, "g", "", "gRPC server address")
 
 	flag.BoolVar(&conf.GRPCSecureEnabled, "e", false, "turning secure gRPC on")
+
+	flag.StringVar(&conf.GRPCFileStorage, "fg", "", "full name of file where to store URL data in JSON format to be used by gRPC server")
+
+	flag.StringVar(&conf.GRPCDatabaseDSN, "dg", "", "string to connect to database of gRPC server")
+
+	flag.StringVar(&conf.GRPCTrustedSubnet, "tg", "", "trusted subnet from which access for stats endpoint on gRPC server is not denied")
+
+	flag.StringVar(&conf.GRPCJWTKey, "jg", "", "gRPC server key to generate JWTs and get info from them")
 }
 
 func main() {
@@ -127,8 +135,23 @@ func main() {
 		jwtKeyEnvName          = "JWT_KEY"
 
 		// other options are shared with http/https server
-		grpcAddressEnvName      = "GRPC_ADDRESS"
-		enableGRPCSecureEnvName = "ENABLE_SECURE_GRPC"
+		grpcAddressEnvName       = "GRPC_ADDRESS"
+		enableGRPCSecureEnvName  = "ENABLE_SECURE_GRPC"
+		grpcFileStorageEnvName   = "GRPC_FILE_STORAGE_PATH"
+		grpcDatabaseDSNEnvName   = "GRPC_DSN"
+		grpcTrustedSubnetEnvName = "GRPC_TRUSTED_SUBNET"
+		grpcJWTKeyEnvName        = "GRPC_JWT_KEY"
+
+		// these vars can be configured through config file (certificate and key paths too)
+		defaultHTTPS01ChallengeServer = ":80"
+		cacheDirPath                  = ".cache"
+		defGRPCAddr                   = "localhost:4431"
+		defAddr                       string
+
+		// certificate and key paths (you should get them before starting the service,
+		// but if you use provided makefile, it shall get them for you)
+		keyPath  = "cert/localhost.key"
+		certPath = "cert/localhost.crt"
 	)
 
 	util.PrintVariable(buildVersion, "version")
@@ -155,16 +178,20 @@ func main() {
 
 	// struct to redefine default env variables names
 	var configWithNames struct {
-		JSONFileEnvName          string `json:"file_storage_path_env,omitempty"`
-		DSNEnvName               string `json:"database_dsn_env,omitempty"`
-		HTTPAddrEnvName          string `json:"server_address_env,omitempty"`
-		ShortAddrEnvName         string `json:"base_url_env,omitempty"`
-		HTTPSEnabledEnvName      string `json:"enable_https_env,omitempty"`
-		ConfigEnvName            string `json:"config_env,omitempty"`
-		TrustedSubnetEnvName     string `json:"trusted_subnet_env,omitempty"`
-		JWTKeyEnvName            string `json:"jwt_key_env,omitempty"`
-		GRPCAddressEnvName       string `json:"grpc_address_env,omitempty"`
-		GRPCSecureEnabledEnvName string `json:"grpc_secure_env,omitempty"`
+		JSONFileEnvName            string `json:"file_storage_path_env,omitempty"`
+		DSNEnvName                 string `json:"database_dsn_env,omitempty"`
+		HTTPAddrEnvName            string `json:"server_address_env,omitempty"`
+		ShortAddrEnvName           string `json:"base_url_env,omitempty"`
+		HTTPSEnabledEnvName        string `json:"enable_https_env,omitempty"`
+		ConfigEnvName              string `json:"config_env,omitempty"`
+		TrustedSubnetEnvName       string `json:"trusted_subnet_env,omitempty"`
+		JWTKeyEnvName              string `json:"jwt_key_env,omitempty"`
+		GRPCAddressEnvName         string `json:"grpc_address_env,omitempty"`
+		GRPCSecureEnabledEnvName   string `json:"grpc_secure_env,omitempty"`
+		GRPCFileStoragePathEnvName string `json:"grpc_file_storage_path_env_name,omitempty"`
+		GRPCDatabaseDSNEnvName     string `json:"grpc_database_dsn_env_name,omitempty"`
+		GRPCTrustedSubnetEnvName   string `json:"grpc_trusted_subnet_env_name,omitempty"`
+		GRPCJWTKeyEnvName          string `json:"grpc_jwt_key_env_name,omitempty"`
 	}
 
 	if configWithNamesPath != "" {
@@ -231,6 +258,22 @@ func main() {
 		if configWithNames.GRPCSecureEnabledEnvName != "" {
 			enableGRPCSecureEnvName = configWithNames.GRPCSecureEnabledEnvName
 		}
+
+		if configWithNames.GRPCFileStoragePathEnvName != "" {
+			grpcFileStorageEnvName = configWithNames.GRPCFileStoragePathEnvName
+		}
+
+		if configWithNames.GRPCDatabaseDSNEnvName != "" {
+			grpcDatabaseDSNEnvName = configWithNames.GRPCDatabaseDSNEnvName
+		}
+
+		if configWithNames.GRPCTrustedSubnetEnvName != "" {
+			grpcTrustedSubnetEnvName = configWithNames.GRPCTrustedSubnetEnvName
+		}
+
+		if configWithNames.GRPCJWTKeyEnvName != "" {
+			grpcJWTKeyEnvName = configWithNames.GRPCJWTKeyEnvName
+		}
 	}
 
 	// getting values of environment variables
@@ -244,6 +287,10 @@ func main() {
 	jwtKeyEnv, jwtKeySet := os.LookupEnv(jwtKeyEnvName)
 	grpcEnv, grpcSet := os.LookupEnv(grpcAddressEnvName)
 	grpcSecureEnv, grpcSecureSet := os.LookupEnv(enableGRPCSecureEnvName)
+	grpcFileStorageEnv, grpcFileStorageSet := os.LookupEnv(grpcFileStorageEnvName)
+	grpcDatabaseDSNEnv, grpcDatabaseDSNSet := os.LookupEnv(grpcDatabaseDSNEnvName)
+	grpcTrustedSubnetEnv, grpcTrustedSubnetSet := os.LookupEnv(grpcTrustedSubnetEnvName)
+	grpcJWTKeyEnv, grpcJWTKeySet := os.LookupEnv(grpcJWTKeyEnvName)
 
 	var boolSecureEnv, boolSecureGRPCEnv bool
 	if secureSet {
@@ -307,6 +354,22 @@ func main() {
 		conf.GRPCSecureEnabled = boolSecureGRPCEnv
 	}
 
+	if grpcFileStorageSet {
+		conf.GRPCFileStorage = grpcFileStorageEnv
+	}
+
+	if grpcDatabaseDSNSet {
+		conf.GRPCDatabaseDSN = grpcDatabaseDSNEnv
+	}
+
+	if grpcTrustedSubnetSet {
+		conf.GRPCTrustedSubnet = grpcTrustedSubnetEnv
+	}
+
+	if grpcJWTKeySet {
+		conf.GRPCJWTKey = grpcJWTKeyEnv
+	}
+
 	// required names of settings in a config file are not the same as in config struct, so we need another one which is rawConfig
 	var rawConfig struct {
 		JSONFile          string `json:"file_storage_path,omitempty"`
@@ -317,7 +380,18 @@ func main() {
 		TrustedSubnet     string `json:"trusted_subnet,omitempty"`
 		JWTKey            string `json:"jwt_key,omitempty"`
 		GRPCAddr          string `json:"grpc_address,omitempty"`
-		GRPCSecureEnabled bool   `json:"enable_secure_grpc"`
+		GRPCSecureEnabled bool   `json:"enable_secure_grpc,omitempty"`
+		GRPCFileStorage   string `json:"grpc_file_storage,omitempty"`
+		GRPCDatabaseDSN   string `json:"grpc_dsn,omitempty"`
+		GRPCTrustedSubnet string `json:"grpc_trusted_subnet,omitempty"`
+		GRPCJWTKey        string `json:"grpc_jwt_key,omitempty"`
+
+		DefaultHTTPS01ChallengeAddress string `json:"default_https_01_challenge_address"`
+		CacheDirPath                   string `json:"cache_dir"`
+		DefaultGRPCAddress             string `json:"default_grpc_address"`
+		DefaultAddress                 string `json:"default_address"`
+		CertificateKeyPath             string `json:"cert_key_path"`
+		CertificatePath                string `json:"cert_path"`
 	}
 
 	if conf.ConfigFilePath != "" {
@@ -394,6 +468,46 @@ func main() {
 		if !conf.GRPCSecureEnabled {
 			conf.GRPCSecureEnabled = rawConfig.GRPCSecureEnabled
 		}
+
+		if rawConfig.DefaultHTTPS01ChallengeAddress != "" {
+			defaultHTTPS01ChallengeServer = rawConfig.DefaultHTTPS01ChallengeAddress
+		}
+
+		if rawConfig.CacheDirPath != "" {
+			cacheDirPath = rawConfig.CacheDirPath
+		}
+
+		if rawConfig.DefaultGRPCAddress != "" {
+			defGRPCAddr = rawConfig.DefaultGRPCAddress
+		}
+
+		if rawConfig.DefaultAddress != "" {
+			defAddr = rawConfig.DefaultAddress
+		}
+
+		if rawConfig.CertificateKeyPath != "" {
+			keyPath = rawConfig.CertificateKeyPath
+		}
+
+		if rawConfig.CertificatePath != "" {
+			certPath = rawConfig.CertificatePath
+		}
+
+		if conf.GRPCFileStorage == "" {
+			conf.GRPCFileStorage = rawConfig.GRPCFileStorage
+		}
+
+		if conf.GRPCDatabaseDSN == "" {
+			conf.GRPCDatabaseDSN = rawConfig.GRPCDatabaseDSN
+		}
+
+		if conf.GRPCTrustedSubnet == "" {
+			conf.GRPCTrustedSubnet = rawConfig.GRPCTrustedSubnet
+		}
+
+		if conf.GRPCJWTKey == "" {
+			conf.GRPCJWTKey = rawConfig.GRPCJWTKey
+		}
 	}
 
 	if conf.JWTKey == "" {
@@ -402,6 +516,22 @@ func main() {
 
 	if conf.JSONFile == "" {
 		conf.JSONFile = defaultFileStorage
+	}
+
+	if conf.GRPCFileStorage == "" {
+		conf.GRPCFileStorage = conf.JSONFile
+	}
+
+	if conf.GRPCDatabaseDSN == "" {
+		conf.GRPCDatabaseDSN = conf.DSN
+	}
+
+	if conf.GRPCTrustedSubnet == "" {
+		conf.GRPCTrustedSubnet = conf.TrustedSubnet
+	}
+
+	if conf.GRPCJWTKey == "" {
+		conf.GRPCJWTKey = conf.JWTKey
 	}
 
 	// creating a postgres struct
@@ -422,12 +552,13 @@ func main() {
 	}
 
 	// if address were not specified, we may need to use a default address which is different for HTTP and HTTPS
-	defAddr := "://localhost:"
-	const defGRPCAddr = "localhost:4431"
-	if conf.HTTPSEnabled {
-		defAddr = fmt.Sprintf("https%s443/", defAddr)
-	} else {
-		defAddr = fmt.Sprintf("http%s8080/", defAddr)
+	if defAddr == "" {
+		defAddr = "://localhost:"
+		if conf.HTTPSEnabled {
+			defAddr = fmt.Sprintf("https%s443/", defAddr)
+		} else {
+			defAddr = fmt.Sprintf("http%s8080/", defAddr)
+		}
 	}
 
 	// if both addresses were not set, we just use the default one
@@ -467,13 +598,34 @@ func main() {
 	ur := repository.NewURL(conf.JSONFile, pg)
 	us := service.NewURL(ur)
 
+	var urGRPC *repository.URL
+	var usGRPC *service.URL
+	pgGRPC := &state.Postgres{}
+	if conf.JSONFile == conf.GRPCFileStorage && conf.DSN == conf.GRPCDatabaseDSN {
+		usGRPC = us
+	} else {
+		if conf.GRPCDatabaseDSN != "" {
+			pgGRPC, err = state.NewPG(conf.GRPCDatabaseDSN)
+			if err != nil {
+				util.GetLogger().Infoln(err)
+			}
+			util.GetLogger().Debugln(pgGRPC)
+			var pgPtr *sql.DB
+			pgPtr, err = pgGRPC.GetPgPtr()
+			if err != nil {
+				util.GetLogger().Infoln(err)
+			}
+			defer pgPtr.Close()
+		}
+
+		urGRPC = repository.NewURL(conf.GRPCFileStorage, pgGRPC)
+		usGRPC = service.NewURL(urGRPC)
+	}
+
 	shortURLsChan := domain.NewMutexChanString(make(chan domain.URLWithID, 10))
 	r := router(us, ur, conf.JWTKey, conf.TrustedSubnet, shortURLsChan, &wg, &once)
 
 	var m *autocert.Manager
-
-	const cacheDirPath = ".cache"
-	const defaultHTTPS01ChallengeServer = ":80"
 
 	// for HTTPs certificates are required, so we are setting up autocert manager and a handler for HTTPS 01 challenge
 	if conf.HTTPSEnabled {
@@ -506,11 +658,6 @@ func main() {
 		return
 	}
 
-	// certificate and key paths (you should get them before starting the service,
-	// but if you use provided makefile, it shall get them for you)
-	const certPath = "cert/localhost.crt"
-	const keyPath = "cert/localhost.key"
-
 	var grpcServer *grpc.Server
 	if conf.GRPCSecureEnabled {
 		creds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
@@ -524,7 +671,7 @@ func main() {
 			interceptor.CheckCIDR(conf.TrustedSubnet), interceptor.ValidateRequest))
 	}
 
-	urlshrtServer := &handler.Server{Wg: &wg, Once: &once, Srv: us, ShortURLsChan: shortURLsChan}
+	urlshrtServer := &handler.Server{Wg: &wg, Once: &once, Srv: usGRPC, ShortURLsChan: shortURLsChan}
 	api.RegisterUrlshrtV1Server(grpcServer, urlshrtServer)
 
 	// channel to intercept signals for graceful shutdown
@@ -565,7 +712,6 @@ func main() {
 	start := time.Now()
 
 	const timeoutInterval = 5 * time.Second
-
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
 	defer cancel()
 

@@ -260,8 +260,6 @@ func TestRouter(t *testing.T) {
 }
 
 func benchmarkRequest(b *testing.B, ts *httptest.Server, body, method, path, contentType string) string {
-	util.GetLogger().Infoln("a")
-
 	var req *http.Request
 	var err error
 	util.GetLogger().Infoln(method)
@@ -310,7 +308,6 @@ func benchmarkRequest(b *testing.B, ts *httptest.Server, body, method, path, con
 		err = json.NewDecoder(resp.Body).Decode(&batch)
 		respBody = []byte(batch[0].Correlation + " " + batch[0].Short)
 	}
-	util.GetLogger().Infoln("be")
 
 	if err != nil {
 		util.GetLogger().Infoln(err)
@@ -643,8 +640,6 @@ func GetExampleMockSrv() *mocks.MockURLService {
 }*/
 
 func exampleRequest(ts *httptest.Server, body, method, path, contentType string) (int, string) {
-	util.GetLogger().Infoln("a")
-
 	var req *http.Request
 	var err error
 	util.GetLogger().Infoln(method)
@@ -693,7 +688,6 @@ func exampleRequest(ts *httptest.Server, body, method, path, contentType string)
 		err = json.NewDecoder(resp.Body).Decode(&batch)
 		respBody = []byte(batch[0].Correlation + " " + batch[0].Short)
 	}
-	util.GetLogger().Infoln("be")
 
 	if err != nil {
 		util.GetLogger().Infoln(err)

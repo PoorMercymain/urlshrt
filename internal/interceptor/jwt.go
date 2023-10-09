@@ -74,7 +74,7 @@ func Authorize(jwtKey string) grpc.UnaryServerInterceptor {
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			needToCreateJWT = true
-			util.GetLogger().Infoln("get metadata")
+			util.GetLogger().Infoln("failed to get metadata")
 		}
 
 		var values []string

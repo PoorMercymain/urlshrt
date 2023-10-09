@@ -98,9 +98,7 @@ func (h *URL) CreateShortened(w http.ResponseWriter, r *http.Request) {
 	util.GetLogger().Infoln(ctx)
 	shortenedURL, err := h.srv.CreateShortened(ctx, originalURL)
 	var uErr *domain.UniqueError
-	util.GetLogger().Infoln("here")
 	if err != nil && errors.As(err, &uErr) {
-		util.GetLogger().Infoln("and here")
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusConflict)
 		_, err = w.Write([]byte(addr + shortenedURL))

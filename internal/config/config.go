@@ -13,6 +13,10 @@ type Config struct {
 	JWTKey            string
 	GRPCAddr          string
 	GRPCSecureEnabled bool
+	GRPCFileStorage   string
+	GRPCDatabaseDSN   string
+	GRPCTrustedSubnet string
+	GRPCJWTKey        string
 }
 
 // AddrWithCheck is a type which represents address and adiitional variable to check if the address was set.
