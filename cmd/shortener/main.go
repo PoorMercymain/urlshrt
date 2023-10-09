@@ -134,7 +134,7 @@ func main() {
 		trustedSubnetEnvName   = "TRUSTED_SUBNET"
 		jwtKeyEnvName          = "JWT_KEY"
 
-		// other options are shared with http/https server
+		// other options (not mentioned in this block) are shared with http/https server
 		grpcAddressEnvName       = "GRPC_ADDRESS"
 		enableGRPCSecureEnvName  = "ENABLE_SECURE_GRPC"
 		grpcFileStorageEnvName   = "GRPC_FILE_STORAGE_PATH"
