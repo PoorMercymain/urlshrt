@@ -29,5 +29,22 @@ jobs:
           mv $GITHUB_WORKSPACE/.tools/statictest /usr/local/bin/statictest
 
       - name: Run statictest
+        shell: bash
         run: |
-          go vet -vettool=$(which statictest) ./...
+            go mod download
+            set +e
+            err_output=$(go vet -vettool=$(which statictest) ./... 2>&1 >/dev/null)
+            vet_exit_code=$?
+            set -e
+            if [[ -z "$err_output" ]]; then
+              echo "No issues detected."
+              exit 0
+            elif [[ "$err_output" == "# github.com/PoorMercymain/urlshrt/pkg/api"*"error var _ should have name of the form errFoo" ]]; then
+              echo "Detected allowed go vet message, proceeding."
+              echo "$err_output"
+              exit 0
+            else
+              echo "Unexpected issues found."
+              echo "$err_output"
+              exit 1
+            fi

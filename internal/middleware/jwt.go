@@ -15,12 +15,12 @@ import (
 )
 
 // GetUserID function is used to get id from JWT string.
-func GetUserID(tokenString string) int64 {
+func GetUserID(tokenString string, jwtKey string) int64 {
 	claims := jwt.MapClaims{
 		"userid": int64(-1),
 	}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
-		return []byte("ultrasecretkey"), nil
+		return []byte(jwtKey), nil
 	})
 
 	if err != nil {
@@ -40,7 +40,7 @@ func GetUserID(tokenString string) int64 {
 }
 
 // BuildJWTString is a function to generate id and create JWT string which will contain it.
-func BuildJWTString() (string, int64, error) {
+func BuildJWTString(jwtKey string) (string, int64, error) {
 	id, err := rand.Int(rand.Reader, big.NewInt(1000))
 	if err != nil {
 		util.GetLogger().Infoln("could not generate", err)
@@ -53,7 +53,7 @@ func BuildJWTString() (string, int64, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString([]byte("ultrasecretkey"))
+	tokenString, err := token.SignedString([]byte(jwtKey))
 	if err != nil {
 		util.GetLogger().Infoln("could not create token", err)
 		return "", -1, err
@@ -65,7 +65,7 @@ func BuildJWTString() (string, int64, error) {
 }
 
 // Authorize is a middleware which checks JWT in cookie and creates it if it does not exist or if it is not correct.
-func Authorize(h http.Handler) http.HandlerFunc {
+func Authorize(h http.Handler, jwtKey string) http.HandlerFunc {
 	jwtFn := func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("auth")
 		if err != nil && !errors.Is(err, http.ErrNoCookie) {
@@ -85,8 +85,8 @@ func Authorize(h http.Handler) http.HandlerFunc {
 
 		cookieString = strings.TrimPrefix(cookieString, "auth=")
 
-		if id = GetUserID(cookieString); id == -1 || !hasCookie {
-			cookieString, id, err = BuildJWTString()
+		if id = GetUserID(cookieString, jwtKey); id == -1 || !hasCookie {
+			cookieString, id, err = BuildJWTString(jwtKey)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return

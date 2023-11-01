@@ -43,7 +43,7 @@ shortener-secure: $(BIN_DIR)
 	go mod download
 	go build -o $(BIN_DIR)/urlshrt ./cmd/shortener/
 	docker-compose up -d
-	$(SHORTENER_PATH) -d "host=localhost dbname=urlshrt user=urlshrt password=urlshrt port=3000 sslmode=disable" -s
+	$(SHORTENER_PATH) -d "host=localhost dbname=urlshrt user=urlshrt password=urlshrt port=3000 sslmode=disable" -s -e
 
 # Цель для выполнения всех тестов
 test:

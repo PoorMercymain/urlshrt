@@ -20,16 +20,16 @@ import (
 	"github.com/PoorMercymain/urlshrt/pkg/util"
 )
 
-type url struct {
+type URL struct {
 	locationOfJSON string
 	pg             *state.Postgres
 }
 
-func NewURL(locationOfJSON string, pg *state.Postgres) *url {
-	return &url{locationOfJSON: locationOfJSON, pg: pg}
+func NewURL(locationOfJSON string, pg *state.Postgres) *URL {
+	return &URL{locationOfJSON: locationOfJSON, pg: pg}
 }
 
-func (r *url) WithTransaction(db *sql.DB, txFunc func(*sql.Tx) error) error {
+func (r *URL) WithTransaction(db *sql.DB, txFunc func(*sql.Tx) error) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func (r *url) WithTransaction(db *sql.DB, txFunc func(*sql.Tx) error) error {
 	return tx.Commit()
 }
 
-func (r *url) PingPg(ctx context.Context) error {
+func (r *URL) PingPg(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	pg, err := r.pg.GetPgPtr()
@@ -61,7 +61,7 @@ func (r *url) PingPg(ctx context.Context) error {
 }
 
 // ReadAll is a function which is used in another function of the app's database level. It gets all URL's data from a database.
-func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
+func (r *URL) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
 	var errOuter error
 	if db, errOuter = r.pg.GetPgPtr(); errOuter != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
@@ -117,7 +117,7 @@ func (r *url) ReadAll(ctx context.Context) ([]state.URLStringJSON, error) {
 }
 
 // Create is a function which saves the URL data (original, shortened...) to a database.
-func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, error) {
+func (r *URL) Create(ctx context.Context, urls []state.URLStringJSON) (string, error) {
 	var db *sql.DB
 	var err error
 	var f *os.File
@@ -195,7 +195,7 @@ func (r *url) Create(ctx context.Context, urls []state.URLStringJSON) (string, e
 }
 
 // CreateBatch is a function which saves URL data to a database when original URLs were in JSON batch.
-func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) error {
+func (r *URL) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) error {
 	var db *sql.DB
 	var err error
 
@@ -271,7 +271,7 @@ func (r *url) CreateBatch(ctx context.Context, batch []*state.URLStringJSON) err
 	})
 }
 
-func (r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
+func (r *URL) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 	var db *sql.DB
 	var err error
 	if db, err = r.pg.GetPgPtr(); err != nil || r.PingPg(ctx) != nil || r.pg.GetDSN() == "" {
@@ -305,7 +305,7 @@ func (r *url) ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error) {
 	return urlsFromPg, nil
 }
 
-func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error {
+func (r *URL) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error {
 	var db *sql.DB
 	var err error
 
@@ -339,7 +339,7 @@ func (r *url) DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int6
 	})
 }
 
-func (r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
+func (r *URL) IsURLDeleted(ctx context.Context, shortened string) (bool, error) {
 	var db *sql.DB
 	var err error
 	var isDeleted int
@@ -363,4 +363,25 @@ func (r *url) IsURLDeleted(ctx context.Context, shortened string) (bool, error) 
 		return false, nil
 	}
 	return true, nil
+}
+
+func (r *URL) CountURLsAndUsers(ctx context.Context) (int, int, error) {
+	var db *sql.DB
+	var err error
+	var totalURLs, totalUsers int
+
+	if r.pg != nil {
+		db, err = r.pg.GetPgPtr()
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+
+	err = db.QueryRow("SELECT (SELECT COUNT(*) FROM urlshrt WHERE is_deleted = 0) AS total_urls, (SELECT COUNT(DISTINCT user_id) FROM urlshrt WHERE is_deleted = 0) AS total_users").Scan(&totalURLs, &totalUsers)
+	if err != nil {
+		util.GetLogger().Infoln(err)
+		return 0, 0, err
+	}
+
+	return totalURLs, totalUsers, err
 }

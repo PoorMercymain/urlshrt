@@ -37,3 +37,6 @@ cert/*
 
 # Test config
 conf.json
+
+# proto file for validator
+/api/proto/validate.proto

@@ -17,6 +17,7 @@ type URLService interface {
 	PingPg(ctx context.Context) error
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
 	DeleteUserURLs(ctx context.Context, short []URLWithID, shortURLsChan *MutexChanString, once *sync.Once, wg *sync.WaitGroup)
+	CountURLsAndUsers(ctx context.Context) (int, int, error)
 }
 
 // URLRepository is an interface which defines what functions does an object which will operate on repository layer should implement.
@@ -30,4 +31,5 @@ type URLRepository interface {
 	ReadUserURLs(ctx context.Context) ([]state.URLStringJSON, error)
 	DeleteUserURLs(ctx context.Context, shortURLs []string, uid []int64) error
 	IsURLDeleted(ctx context.Context, shortened string) (bool, error)
+	CountURLsAndUsers(ctx context.Context) (int, int, error)
 }

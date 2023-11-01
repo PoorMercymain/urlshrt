@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package api.v1;
+
+option go_package = "github.com/PoorMercymain/urlshrt/pkg/api";
+
+import "google/protobuf/empty.proto";
+import "validate.proto";
+
+// Urlshrt is a service for shortening urls
+service UrlshrtV1 {
+  // read original url providing shortened
+  rpc ReadOriginalV1(ReadOriginalRequestV1) returns (ReadOriginalReplyV1) {}
+
+  // create shortened url from original
+  rpc CreateShortenedV1(CreateShortenedRequestV1) returns (CreateShortenedReplyV1) {}
+
+  // create shortened urls providing batch of original urls with correlation ids
+  rpc CreateShortenedFromBatchV1(CreateShortenedFromBatchRequestV1) returns (CreateShortenedFromBatchReplyV1) {}
+
+  // read all current user's urls
+  rpc ReadUserURLsV1(google.protobuf.Empty) returns (ReadUserURLsReplyV1) {}
+
+  // read amount of urls and users, excluding deleted urls and those users, who have deleted all their urls
+  rpc ReadAmountOfURLsAndUsersV1(google.protobuf.Empty) returns (ReadAmountOfURLsAndUsersReplyV1) {}
+
+  // delete user's urls providing their short versions without host
+  rpc DeleteUserURLsV1(DeleteUserURLsRequestV1) returns (google.protobuf.Empty) {}
+}
+
+message ReadOriginalRequestV1 {
+  string shortened = 1 [(validate.rules).string.min_len = 1];
+}
+
+message ReadOriginalReplyV1 {
+  string original = 1 [(validate.rules).string.min_len = 1];
+}
+
+message CreateShortenedRequestV1 {
+  string original = 1 [(validate.rules).string.min_len = 1];
+}
+
+message CreateShortenedReplyV1 {
+  string shortened = 1 [(validate.rules).string.min_len = 1];
+}
+
+message CreateShortenedFromBatchRequestV1 {
+  repeated OriginalWithCorrelationV1 original = 1 [(validate.rules).repeated.min_items = 1];
+}
+
+message OriginalWithCorrelationV1 {
+  string original = 1 [(validate.rules).string.min_len = 1];
+  string correlation = 2 [(validate.rules).string.min_len = 1];
+}
+
+message CreateShortenedFromBatchReplyV1 {
+  repeated ShortenedWithCorrelationV1 shortened = 1 [(validate.rules).repeated.min_items = 1];
+}
+
+message ShortenedWithCorrelationV1 {
+  string shortened = 1 [(validate.rules).string.min_len = 1];
+  string correlation = 2 [(validate.rules).string.min_len = 1];
+}
+
+message ReadUserURLsReplyV1 {
+  repeated OriginalWithShortenedV1 original_with_shortened = 1 [(validate.rules).repeated.min_items = 0];
+}
+
+message OriginalWithShortenedV1 {
+  string original = 1 [(validate.rules).string.min_len = 1];
+  string shortened = 2 [(validate.rules).string.min_len = 1];
+}
+
+message ReadAmountOfURLsAndUsersReplyV1 {
+  int64 urls_amount = 1 [(validate.rules).int64.gte = 0];
+  int64 users_amount = 2 [(validate.rules).int64.gte = 0];
+}
+
+message DeleteUserURLsRequestV1 {
+  repeated string urls_to_delete = 1 [(validate.rules).repeated.items.string.min_len = 1, (validate.rules).repeated.min_items = 1];
+}

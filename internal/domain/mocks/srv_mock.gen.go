@@ -38,6 +38,22 @@ func (m *MockURLService) EXPECT() *MockURLServiceMockRecorder {
 	return m.recorder
 }
 
+// CountURLsAndUsers mocks base method.
+func (m *MockURLService) CountURLsAndUsers(arg0 context.Context) (int, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountURLsAndUsers", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CountURLsAndUsers indicates an expected call of CountURLsAndUsers.
+func (mr *MockURLServiceMockRecorder) CountURLsAndUsers(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountURLsAndUsers", reflect.TypeOf((*MockURLService)(nil).CountURLsAndUsers), arg0)
+}
+
 // CreateShortened mocks base method.
 func (m *MockURLService) CreateShortened(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()

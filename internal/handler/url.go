@@ -277,6 +277,31 @@ func (h *URL) ReadUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *URL) ReadAmountOfURLsAndUsers(w http.ResponseWriter, r *http.Request) {
+	var amounts domain.Amounts
+	var err error
+	amounts.URLs, amounts.Users, err = h.srv.CountURLsAndUsers(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var amountsJSONBytes []byte
+	buf := bytes.NewBuffer(amountsJSONBytes)
+	err = json.NewEncoder(buf).Encode(amounts)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
 // DeleteUserURLsAdapter - adapter for closure function to mark URL as deleted.
 func (h *URL) DeleteUserURLsAdapter(shortURLsChan *domain.MutexChanString, once *sync.Once, wg *sync.WaitGroup) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
